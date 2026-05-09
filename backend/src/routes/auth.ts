@@ -13,9 +13,11 @@ router.post('/register', async (req: Request, res: Response) => {
   const existing = row((await db.execute({ sql: 'SELECT id FROM users WHERE email = ?', args: [email.toLowerCase()] })).rows[0]);
   if (existing) { res.status(409).json({ error: 'Email already registered' }); return; }
   const hash = bcrypt.hashSync(password, 10);
-  const result = await db.execute({ sql: 'INSERT INTO users (name, email, password_hash, role, phone) VALUES (?,?,?,?,?)', args: [name, email.toLowerCase(), hash, 'player', phone || null] });
-  const user = row((await db.execute({ sql: 'SELECT id, name, email, role FROM users WHERE id = ?', args: [Number(result.lastInsertRowid)] })).rows[0]);
-  res.status(201).json({ token: signToken(user), user });
+  await db.execute({
+    sql: 'INSERT INTO users (name, email, password_hash, role, phone, status) VALUES (?,?,?,?,?,?)',
+    args: [name, email.toLowerCase(), hash, 'player', phone || null, 'pending'],
+  });
+  res.status(201).json({ pending: true, message: 'Registration submitted! A manager or admin will review your request. You will be able to log in once approved.' });
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -23,7 +25,9 @@ router.post('/login', async (req: Request, res: Response) => {
   if (!email || !password) { res.status(400).json({ error: 'Email and password are required' }); return; }
   const db = getDb();
   const user = row((await db.execute({ sql: 'SELECT * FROM users WHERE email = ?', args: [email.toLowerCase()] })).rows[0]);
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) { res.status(401).json({ error: 'Invalid credentials' }); return; }
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) { res.status(401).json({ error: 'Invalid email or password' }); return; }
+  if (user.status === 'pending') { res.status(403).json({ error: 'Your account is awaiting approval from a manager or admin.' }); return; }
+  if (user.status === 'rejected') { res.status(403).json({ error: 'Your registration was not approved. Please contact the club admin.' }); return; }
   res.json({ token: signToken({ id: user.id, email: user.email, role: user.role, name: user.name }), user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 });
 

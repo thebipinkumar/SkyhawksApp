@@ -120,7 +120,23 @@ export async function initDb(): Promise<void> {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (created_by) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS match_availability (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      match_id INTEGER NOT NULL,
+      player_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'not_responded' CHECK(status IN ('available','not_available','maybe','not_responded')),
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (match_id) REFERENCES matches(id),
+      FOREIGN KEY (player_id) REFERENCES users(id),
+      UNIQUE(match_id, player_id)
+    );
   `);
+
+  // Migrate: add status column to users for existing databases
+  try {
+    await db.execute(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
+  } catch { /* column already exists */ }
 
   // Seed default club_settings row
   const settingsRow = await db.execute('SELECT COUNT(*) as n FROM club_settings');

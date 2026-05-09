@@ -9,7 +9,7 @@ router.get('/banners', async (_req: Request, res: Response) => {
 });
 
 router.get('/members', async (_req: Request, res: Response) => {
-  const result = await getDb().execute(`SELECT id, name, role, batting_style, bowling_style, bio, avatar_url, created_at FROM users ORDER BY name`);
+  const result = await getDb().execute(`SELECT id, name, role, batting_style, bowling_style, bio, avatar_url, created_at FROM users WHERE status = 'active' ORDER BY name`);
   res.json(rows(result.rows));
 });
 

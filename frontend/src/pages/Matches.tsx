@@ -1,8 +1,8 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
-import { Match } from '../types';
-import { Calendar, Plus, X, Edit2, Trash2, MapPin, Clock } from 'lucide-react';
+import { Match, AvailabilityRecord, AvailabilityStatus } from '../types';
+import { Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, HelpCircle, MinusCircle } from 'lucide-react';
 
 const MATCH_TYPES = ['T20', 'ODI', 'Test', 'Practice'];
 const STATUS_OPTIONS = ['scheduled', 'completed', 'cancelled'];
@@ -10,6 +10,13 @@ const STATUS_OPTIONS = ['scheduled', 'completed', 'cancelled'];
 const emptyForm = {
   title: '', opponent: '', venue: '', match_date: '', match_time: '',
   match_type: 'T20', status: 'scheduled', result: '', notes: ''
+};
+
+const availabilityConfig: Record<AvailabilityStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  available:     { label: 'Available',     color: 'bg-green-100 text-green-700 border-green-300',  icon: <CheckCircle size={14} /> },
+  maybe:         { label: 'Maybe',         color: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: <HelpCircle size={14} /> },
+  not_available: { label: 'Not Available', color: 'bg-red-100 text-red-700 border-red-300',        icon: <XCircle size={14} /> },
+  not_responded: { label: 'Not Responded', color: 'bg-gray-100 text-gray-500 border-gray-200',     icon: <MinusCircle size={14} /> },
 };
 
 export default function Matches() {
@@ -23,62 +30,80 @@ export default function Matches() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
 
-  const canManage = ['manager', 'admin'].includes(user?.role || '');
+  // Availability state
+  const [availability, setAvailability] = useState<Record<number, AvailabilityRecord[]>>({});
+  const [myStatus, setMyStatus] = useState<Record<number, AvailabilityStatus>>({});
+  const [expandedAvail, setExpandedAvail] = useState<Record<number, boolean>>({});
+  const [updatingAvail, setUpdatingAvail] = useState<number | null>(null);
+
+  const canManage  = ['manager', 'admin'].includes(user?.role || '');
+  const canSeeAll  = ['manager', 'admin', 'selector'].includes(user?.role || '');
+  const isPlayer   = user?.role === 'player';
 
   const load = async () => {
-    try {
-      const { data } = await api.get('/matches');
-      setMatches(data);
-    } finally {
-      setLoading(false);
-    }
+    try { const { data } = await api.get('/matches'); setMatches(data); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
 
+  const loadAvailability = async (matchId: number) => {
+    const { data } = await api.get(`/matches/${matchId}/availability`);
+    setAvailability(prev => ({ ...prev, [matchId]: data }));
+    if (user) {
+      const mine = data.find((r: AvailabilityRecord) => r.player_id === user.id);
+      setMyStatus(prev => ({ ...prev, [matchId]: mine?.status || 'not_responded' }));
+    }
+  };
+
+  useEffect(() => {
+    if (matches.length > 0) matches.forEach(m => loadAvailability(m.id));
+  }, [matches]);
+
+  const setAvail = async (matchId: number, status: AvailabilityStatus) => {
+    if (status === 'not_responded') return;
+    setUpdatingAvail(matchId);
+    try {
+      await api.put(`/matches/${matchId}/availability`, { status });
+      setMyStatus(prev => ({ ...prev, [matchId]: status }));
+      loadAvailability(matchId);
+    } finally { setUpdatingAvail(null); }
+  };
+
   const openCreate = () => { setForm(emptyForm); setEditMatch(null); setShowForm(true); setError(''); };
   const openEdit = (m: Match) => {
-    setForm({ title: m.title, opponent: m.opponent, venue: m.venue, match_date: m.match_date, match_time: m.match_time, match_type: m.match_type, status: m.status, result: m.result || '', notes: m.notes || '' });
+    setForm({ title: m.title, opponent: m.opponent, venue: m.venue, match_date: m.match_date,
+      match_time: m.match_time, match_type: m.match_type, status: m.status, result: m.result || '', notes: m.notes || '' });
     setEditMatch(m); setShowForm(true); setError('');
   };
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true); setError('');
+    e.preventDefault(); setSubmitting(true); setError('');
     try {
-      if (editMatch) {
-        await api.put(`/matches/${editMatch.id}`, form);
-      } else {
-        await api.post('/matches', form);
-      }
-      setShowForm(false);
-      load();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to save match');
-    } finally {
-      setSubmitting(false);
-    }
+      editMatch ? await api.put(`/matches/${editMatch.id}`, form) : await api.post('/matches', form);
+      setShowForm(false); load();
+    } catch (err: any) { setError(err.response?.data?.error || 'Failed to save match'); }
+    finally { setSubmitting(false); }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this match?')) return;
-    try {
-      await api.delete(`/matches/${id}`);
-      load();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete match. Please try again.');
-    }
+    try { await api.delete(`/matches/${id}`); load(); }
+    catch (err: any) { alert(err.response?.data?.error || 'Failed to delete match.'); }
   };
 
   const filtered = filter === 'all' ? matches : matches.filter(m => m.status === filter);
-
   const statusColor: Record<string, string> = {
-    scheduled: 'bg-blue-100 text-blue-700',
-    completed: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-600',
+    scheduled: 'bg-blue-100 text-blue-700', completed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-600',
   };
-
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
+  const availSummary = (recs: AvailabilityRecord[]) => ({
+    available:     recs.filter(r => r.status === 'available').length,
+    maybe:         recs.filter(r => r.status === 'maybe').length,
+    not_available: recs.filter(r => r.status === 'not_available').length,
+    not_responded: recs.filter(r => r.status === 'not_responded').length,
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -107,9 +132,7 @@ export default function Matches() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}
-        </div>
+        <div className="grid gap-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="card text-center py-16 text-gray-400">
           <Calendar size={48} className="mx-auto mb-3 opacity-30" />
@@ -117,41 +140,110 @@ export default function Matches() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {filtered.map(match => (
-            <div key={match.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h3 className="text-lg font-bold text-gray-900">{match.title}</h3>
-                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${statusColor[match.status]}`}>
-                      {match.status}
-                    </span>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600">{match.match_type}</span>
+          {filtered.map(match => {
+            const recs  = availability[match.id] || [];
+            const summ  = availSummary(recs);
+            const mine  = myStatus[match.id] || 'not_responded';
+            const cfg   = availabilityConfig[mine];
+            const isExp = expandedAvail[match.id];
+
+            return (
+              <div key={match.id} className="card hover:shadow-md transition-shadow">
+                {/* Match info row */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="text-lg font-bold text-gray-900">{match.title}</h3>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${statusColor[match.status]}`}>{match.status}</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600">{match.match_type}</span>
+                    </div>
+                    <p className="text-gray-700 font-medium">vs <span className="text-blue-700">{match.opponent}</span></p>
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                      <span className="flex items-center gap-1"><MapPin size={14} />{match.venue}</span>
+                      <span className="flex items-center gap-1"><Calendar size={14} />{formatDate(match.match_date)}</span>
+                      <span className="flex items-center gap-1"><Clock size={14} />{match.match_time}</span>
+                    </div>
+                    {match.result && <p className="mt-2 text-sm text-green-700 font-medium">Result: {match.result}</p>}
+                    {match.notes && <p className="mt-1 text-sm text-gray-500 italic">{match.notes}</p>}
                   </div>
-                  <p className="text-gray-700 font-medium">vs <span className="text-blue-700">{match.opponent}</span></p>
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
-                    <span className="flex items-center gap-1"><MapPin size={14} />{match.venue}</span>
-                    <span className="flex items-center gap-1"><Calendar size={14} />{formatDate(match.match_date)}</span>
-                    <span className="flex items-center gap-1"><Clock size={14} />{match.match_time}</span>
-                  </div>
-                  {match.result && <p className="mt-2 text-sm text-green-700 font-medium">Result: {match.result}</p>}
-                  {match.notes && <p className="mt-1 text-sm text-gray-500 italic">{match.notes}</p>}
-                </div>
-                {canManage && (
-                  <div className="flex gap-2">
-                    <button onClick={() => openEdit(match)} className="btn-secondary flex items-center gap-1 text-sm py-1.5 px-3">
-                      <Edit2 size={14} /> Edit
-                    </button>
-                    {user?.role === 'admin' && (
-                      <button onClick={() => handleDelete(match.id)} className="btn-danger flex items-center gap-1 text-sm py-1.5 px-3">
-                        <Trash2 size={14} /> Delete
+                  {canManage && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={() => openEdit(match)} className="btn-secondary flex items-center gap-1 text-sm py-1.5 px-3">
+                        <Edit2 size={14} /> Edit
                       </button>
-                    )}
-                  </div>
-                )}
+                      {user?.role === 'admin' && (
+                        <button onClick={() => handleDelete(match.id)} className="btn-danger flex items-center gap-1 text-sm py-1.5 px-3">
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Availability section */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  {/* Player: mark own availability */}
+                  {isPlayer && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-600">Your availability:</span>
+                      <div className="flex gap-2">
+                        {(['available', 'maybe', 'not_available'] as AvailabilityStatus[]).map(s => (
+                          <button key={s} disabled={updatingAvail === match.id}
+                            onClick={() => setAvail(match.id, s)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mine === s ? availabilityConfig[s].color + ' font-semibold ring-2 ring-offset-1 ring-current' : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'}`}>
+                            {availabilityConfig[s].icon} {availabilityConfig[s].label}
+                          </button>
+                        ))}
+                      </div>
+                      {mine === 'not_responded' && <span className="text-xs text-gray-400 italic">Not responded yet</span>}
+                    </div>
+                  )}
+
+                  {/* Staff: see availability summary + toggle detail */}
+                  {canSeeAll && recs.length > 0 && (
+                    <div>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <span className="text-sm font-medium text-gray-600">Player Availability:</span>
+                        <div className="flex gap-3 text-xs flex-wrap">
+                          <span className="flex items-center gap-1 text-green-700"><CheckCircle size={13} /> {summ.available} Available</span>
+                          <span className="flex items-center gap-1 text-yellow-700"><HelpCircle size={13} /> {summ.maybe} Maybe</span>
+                          <span className="flex items-center gap-1 text-red-600"><XCircle size={13} /> {summ.not_available} Unavailable</span>
+                          <span className="flex items-center gap-1 text-gray-400"><MinusCircle size={13} /> {summ.not_responded} Not Responded</span>
+                        </div>
+                        <button onClick={() => setExpandedAvail(prev => ({ ...prev, [match.id]: !isExp }))}
+                          className="ml-auto flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                          {isExp ? <><ChevronUp size={14} /> Hide</> : <><ChevronDown size={14} /> View All</>}
+                        </button>
+                      </div>
+
+                      {isExp && (
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {recs.map(r => {
+                            const c = availabilityConfig[r.status];
+                            return (
+                              <div key={r.player_id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs flex-shrink-0">
+                                    {r.avatar_url
+                                      ? <img src={r.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+                                      : r.player_name.charAt(0)}
+                                  </div>
+                                  <span className="text-sm text-gray-800">{r.player_name}</span>
+                                </div>
+                                <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${c.color}`}>
+                                  {c.icon} {c.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

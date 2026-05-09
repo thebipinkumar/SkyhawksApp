@@ -39,8 +39,39 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
   if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
   await db.execute({ sql: 'DELETE FROM announcements WHERE match_id = ?', args: [req.params.id] });
   await db.execute({ sql: 'DELETE FROM team_selections WHERE match_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM match_availability WHERE match_id = ?', args: [req.params.id] });
   await db.execute({ sql: 'DELETE FROM matches WHERE id = ?', args: [req.params.id] });
   res.json({ message: 'Match deleted' });
+});
+
+// Player sets their own availability for a match
+router.put('/:matchId/availability', authenticate, async (req: AuthRequest, res: Response) => {
+  const { status } = req.body;
+  if (!['available', 'not_available', 'maybe'].includes(status)) { res.status(400).json({ error: 'Status must be available, not_available, or maybe' }); return; }
+  const db = getDb();
+  if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.matchId] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
+  await db.execute({
+    sql: `INSERT INTO match_availability (match_id, player_id, status) VALUES (?,?,?)
+          ON CONFLICT(match_id, player_id) DO UPDATE SET status=excluded.status, updated_at=CURRENT_TIMESTAMP`,
+    args: [req.params.matchId, req.user!.id, status],
+  });
+  res.json({ message: 'Availability updated' });
+});
+
+// Get all players' availability for a match
+router.get('/:matchId/availability', authenticate, async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.matchId] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
+  const result = await db.execute({
+    sql: `SELECT u.id as player_id, u.name as player_name, u.avatar_url,
+          COALESCE(ma.status, 'not_responded') as status, ma.updated_at
+          FROM users u
+          LEFT JOIN match_availability ma ON ma.player_id = u.id AND ma.match_id = ?
+          WHERE u.status = 'active' AND u.role = 'player'
+          ORDER BY u.name`,
+    args: [req.params.matchId],
+  });
+  res.json(rows(result.rows));
 });
 
 export default router;

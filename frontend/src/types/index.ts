@@ -1,16 +1,35 @@
 export type Role = 'player' | 'manager' | 'selector' | 'admin';
+export type UserStatus = 'active' | 'pending' | 'rejected';
+export type AvailabilityStatus = 'available' | 'not_available' | 'maybe' | 'not_responded';
 
 export interface User {
   id: number;
   name: string;
   email: string;
   role: Role;
+  status?: UserStatus;
   phone?: string;
   bio?: string;
   avatar_url?: string;
   batting_style?: string;
   bowling_style?: string;
   created_at?: string;
+}
+
+export interface PendingUser {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  created_at: string;
+}
+
+export interface AvailabilityRecord {
+  player_id: number;
+  player_name: string;
+  avatar_url?: string;
+  status: AvailabilityStatus;
+  updated_at?: string;
 }
 
 export interface Match {
