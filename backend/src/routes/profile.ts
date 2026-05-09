@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
+import bcrypt from 'bcryptjs';
 import { getDb, row } from '../db/database.js';
 import { uploadImage, deleteImage } from '../db/cloudinary.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
@@ -43,6 +44,21 @@ router.delete('/avatar', authenticate, async (req: AuthRequest, res: Response) =
   if (current?.avatar_public_id) await deleteImage(current.avatar_public_id);
   await db.execute({ sql: 'UPDATE users SET avatar_url=NULL, avatar_public_id=NULL WHERE id=?', args: [req.user!.id] });
   res.json({ message: 'Avatar removed' });
+});
+
+router.post('/change-password', authenticate, async (req: AuthRequest, res: Response) => {
+  const { old_password, new_password } = req.body;
+  if (!old_password || !new_password) { res.status(400).json({ error: 'Both old and new password are required' }); return; }
+  if (new_password.length < 6) { res.status(400).json({ error: 'New password must be at least 6 characters' }); return; }
+
+  const db = getDb();
+  const user = row((await db.execute({ sql: 'SELECT password_hash FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]);
+  if (!bcrypt.compareSync(old_password, user.password_hash)) {
+    res.status(400).json({ error: 'Current password is incorrect' }); return;
+  }
+
+  await db.execute({ sql: 'UPDATE users SET password_hash = ? WHERE id = ?', args: [bcrypt.hashSync(new_password, 10), req.user!.id] });
+  res.json({ message: 'Password changed successfully' });
 });
 
 export default router;

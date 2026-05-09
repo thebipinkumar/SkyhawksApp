@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { User } from '../types';
-import { Camera, Save, Trash2, User as UserIcon, Shield } from 'lucide-react';
+import { Camera, Save, Trash2, User as UserIcon, Shield, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
@@ -21,6 +21,13 @@ export default function Profile() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const [pwForm, setPwForm] = useState({ old_password: '', new_password: '', confirm: '' });
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwErr, setPwErr] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
   const load = async () => {
     const { data } = await api.get('/profile');
@@ -77,6 +84,22 @@ export default function Profile() {
     await api.delete('/profile/avatar');
     setProfile(p => p ? { ...p, avatar_url: undefined } : p);
     setMsg('Profile picture removed.');
+  };
+
+  const handleChangePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setPwErr(''); setPwMsg('');
+    if (pwForm.new_password !== pwForm.confirm) { setPwErr('New passwords do not match'); return; }
+    setPwSaving(true);
+    try {
+      await api.post('/profile/change-password', { old_password: pwForm.old_password, new_password: pwForm.new_password });
+      setPwMsg('Password changed successfully!');
+      setPwForm({ old_password: '', new_password: '', confirm: '' });
+    } catch (e: any) {
+      setPwErr(e.response?.data?.error || 'Failed to change password');
+    } finally {
+      setPwSaving(false);
+    }
   };
 
   const avatarSrc = profile?.avatar_url || null;
@@ -187,6 +210,53 @@ export default function Profile() {
             </div>
           </form>
         </div>
+      </div>
+      {/* Change Password */}
+      <div className="card mt-6">
+        <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <KeyRound size={18} className="text-blue-600" /> Change Password
+        </h2>
+
+        {pwMsg && <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 mb-4 text-sm">{pwMsg}</div>}
+        {pwErr && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm">{pwErr}</div>}
+
+        <form onSubmit={handleChangePassword} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+            <div className="relative">
+              <input type={showOld ? 'text' : 'password'} className="input-field pr-10"
+                placeholder="••••••••" value={pwForm.old_password}
+                onChange={e => setPwForm(f => ({ ...f, old_password: e.target.value }))} required />
+              <button type="button" onClick={() => setShowOld(v => !v)}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
+                {showOld ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <div className="relative">
+              <input type={showNew ? 'text' : 'password'} className="input-field pr-10"
+                placeholder="••••••••" value={pwForm.new_password}
+                onChange={e => setPwForm(f => ({ ...f, new_password: e.target.value }))} required />
+              <button type="button" onClick={() => setShowNew(v => !v)}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+            <input type="password" className="input-field" placeholder="••••••••"
+              value={pwForm.confirm}
+              onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} required />
+          </div>
+          <div className="sm:col-span-3 flex justify-end pt-1">
+            <button type="submit" disabled={pwSaving} className="btn-primary flex items-center gap-2">
+              <KeyRound size={15} /> {pwSaving ? 'Updating…' : 'Update Password'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
