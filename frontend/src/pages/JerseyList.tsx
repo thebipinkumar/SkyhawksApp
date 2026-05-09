@@ -6,6 +6,13 @@ import { Shirt, Download, CheckCircle, XCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const toDataURL = (url: string): Promise<string> =>
+  fetch(url).then(r => r.blob()).then(blob => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  }));
+
 type Attire = 'whites' | 'colored';
 type JerseyStatus = 'required' | 'not_required';
 
@@ -45,15 +52,30 @@ export default function JerseyList() {
     } finally { setToggling(null); }
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const clubName = club?.club_name || 'Skyhawks Cricket Club';
-    const title = `${clubName} — Jersey List (${attire === 'whites' ? 'Whites' : 'Colored'})`;
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 15;
 
-    doc.setFontSize(14);
-    doc.text(title, 14, 16);
-    doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}`, 14, 23);
+    if (club?.logo_url) {
+      try {
+        const dataUrl = await toDataURL(club.logo_url);
+        doc.addImage(dataUrl, 'PNG', pageW / 2 - 12, y, 24, 24);
+        y += 28;
+      } catch { /* skip logo if CORS or network fails */ }
+    }
+
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text(clubName, pageW / 2, y, { align: 'center' });
+    y += 8;
+    doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+    doc.text(`Jersey List — ${attire === 'whites' ? 'Whites' : 'Colored'}`, pageW / 2, y, { align: 'center' });
+    y += 6;
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}`, pageW / 2, y, { align: 'center' });
+    doc.setTextColor(0);
+    y += 8;
 
     const rows = players.map((p, i) => {
       const status = attire === 'whites' ? p.whites_jersey_status : p.colored_jersey_status;
@@ -70,7 +92,7 @@ export default function JerseyList() {
     });
 
     autoTable(doc, {
-      startY: 28,
+      startY: y,
       head: [['#', 'Name', 'Jersey #', 'Label', 'T-Shirt', 'Lower', 'Sleeve', 'Status']],
       body: rows,
       styles: { fontSize: 9 },
