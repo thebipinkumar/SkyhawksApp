@@ -8,18 +8,26 @@ import { sendPasswordResetEmail } from '../utils/email.js';
 const router = Router();
 
 router.post('/register', async (req: Request, res: Response) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, date_of_birth, jersey_number, jersey_label,
+    whites_tshirt_size, whites_lower_size, whites_sleeve,
+    colored_tshirt_size, colored_lower_size, colored_sleeve } = req.body;
   if (!name || !email || !password) { res.status(400).json({ error: 'Name, email and password are required' }); return; }
   if (password.length < 6) { res.status(400).json({ error: 'Password must be at least 6 characters' }); return; }
   const db = getDb();
   const existing = row((await db.execute({ sql: 'SELECT id FROM users WHERE email = ?', args: [email.toLowerCase()] })).rows[0]);
   if (existing) { res.status(409).json({ error: 'Email already registered' }); return; }
   const hash = bcrypt.hashSync(password, 10);
-  const result = await db.execute({
-    sql: 'INSERT INTO users (name, email, password_hash, role, phone, status) VALUES (?,?,?,?,?,?)',
-    args: [name, email.toLowerCase(), hash, 'player', phone || null, 'pending'],
+  await db.execute({
+    sql: `INSERT INTO users (name, email, password_hash, role, phone, status,
+            date_of_birth, jersey_number, jersey_label,
+            whites_tshirt_size, whites_lower_size, whites_sleeve,
+            colored_tshirt_size, colored_lower_size, colored_sleeve)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [name, email.toLowerCase(), hash, 'player', phone||null, 'pending',
+           date_of_birth||null, jersey_number||null, jersey_label||null,
+           whites_tshirt_size||null, whites_lower_size||null, whites_sleeve||null,
+           colored_tshirt_size||null, colored_lower_size||null, colored_sleeve||null],
   });
-  // New registrations default to 'player' role (added to user_roles when approved)
   res.status(201).json({ pending: true, message: 'Registration submitted! A manager or admin will review your request. You will be able to log in once approved.' });
 });
 

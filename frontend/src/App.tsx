@@ -17,6 +17,7 @@ import Budget from './pages/Budget';
 import UsersPage from './pages/Users';
 import Profile from './pages/Profile';
 import AdminSettings from './pages/AdminSettings';
+import JerseyList from './pages/JerseyList';
 import About from './pages/public/About';
 import PublicMatches from './pages/public/PublicMatches';
 import PublicMembers from './pages/public/PublicMembers';
@@ -71,6 +72,7 @@ function AppRoutes() {
       <Route path="/budget"         element={<ProtectedRoute roles={['manager','admin']}><Budget /></ProtectedRoute>} />
       <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
+      <Route path="/jerseys"        element={<ProtectedRoute roles={['admin','manager','selector']}><JerseyList /></ProtectedRoute>} />
 
       {/* Public */}
       <Route path="/public/about"   element={<PublicPageRoute><About /></PublicPageRoute>} />

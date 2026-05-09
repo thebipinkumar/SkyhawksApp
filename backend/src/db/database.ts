@@ -152,6 +152,22 @@ export async function initDb(): Promise<void> {
   try { await db.execute(`ALTER TABLE users ADD COLUMN reset_token TEXT`); } catch { /* exists */ }
   try { await db.execute(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`); } catch { /* exists */ }
 
+  // Migrate: jersey & kit preference columns
+  const jerseyMigrations = [
+    `ALTER TABLE users ADD COLUMN date_of_birth TEXT`,
+    `ALTER TABLE users ADD COLUMN jersey_number TEXT`,
+    `ALTER TABLE users ADD COLUMN jersey_label TEXT`,
+    `ALTER TABLE users ADD COLUMN whites_tshirt_size TEXT`,
+    `ALTER TABLE users ADD COLUMN whites_lower_size TEXT`,
+    `ALTER TABLE users ADD COLUMN whites_sleeve TEXT`,
+    `ALTER TABLE users ADD COLUMN colored_tshirt_size TEXT`,
+    `ALTER TABLE users ADD COLUMN colored_lower_size TEXT`,
+    `ALTER TABLE users ADD COLUMN colored_sleeve TEXT`,
+    `ALTER TABLE users ADD COLUMN whites_jersey_status TEXT NOT NULL DEFAULT 'required'`,
+    `ALTER TABLE users ADD COLUMN colored_jersey_status TEXT NOT NULL DEFAULT 'required'`,
+  ];
+  for (const sql of jerseyMigrations) { try { await db.execute(sql); } catch { /* exists */ } }
+
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {
     await db.execute('SELECT ball_type FROM matches LIMIT 1');

@@ -6,6 +6,9 @@ import { Camera, Save, Trash2, User as UserIcon, Shield, KeyRound, Eye, EyeOff }
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
+const TSHIRT_SIZES  = ['', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+const LOWER_SIZES   = ['', '28', '30', '32', '34', '36', '38', '40', '42'];
+const SLEEVES       = ['', 'Half Sleeve', 'Full Sleeve'];
 
 const roleBadge: Record<string, string> = {
   player: 'badge-player', manager: 'badge-manager',
@@ -15,7 +18,12 @@ const roleBadge: Record<string, string> = {
 export default function Profile() {
   const { user: authUser, login } = useAuth();
   const [profile, setProfile] = useState<User | null>(null);
-  const [form, setForm] = useState({ name: '', phone: '', bio: '', batting_style: '', bowling_style: '' });
+  const [form, setForm] = useState({
+    name: '', phone: '', bio: '', batting_style: '', bowling_style: '',
+    date_of_birth: '', jersey_number: '', jersey_label: '',
+    whites_tshirt_size: '', whites_lower_size: '', whites_sleeve: '',
+    colored_tshirt_size: '', colored_lower_size: '', colored_sleeve: '',
+  });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState('');
@@ -33,11 +41,14 @@ export default function Profile() {
     const { data } = await api.get('/profile');
     setProfile(data);
     setForm({
-      name: data.name || '',
-      phone: data.phone || '',
-      bio: data.bio || '',
-      batting_style: data.batting_style || '',
-      bowling_style: data.bowling_style || '',
+      name: data.name || '', phone: data.phone || '', bio: data.bio || '',
+      batting_style: data.batting_style || '', bowling_style: data.bowling_style || '',
+      date_of_birth: data.date_of_birth || '', jersey_number: data.jersey_number || '',
+      jersey_label: data.jersey_label || '',
+      whites_tshirt_size: data.whites_tshirt_size || '', whites_lower_size: data.whites_lower_size || '',
+      whites_sleeve: data.whites_sleeve || '',
+      colored_tshirt_size: data.colored_tshirt_size || '', colored_lower_size: data.colored_lower_size || '',
+      colored_sleeve: data.colored_sleeve || '',
     });
   };
 
@@ -201,6 +212,81 @@ export default function Profile() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
               <textarea className="input-field" rows={3} value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} placeholder="Tell the team a little about yourself…" />
+            </div>
+
+            {/* Jersey & Kit */}
+            <div className="border-t pt-4 mt-2">
+              <p className="text-sm font-semibold text-gray-700 mb-3">🏏 Jersey & Kit Preferences</p>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input type="date" className="input-field" value={form.date_of_birth} onChange={e => setForm(f => ({ ...f, date_of_birth: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
+                  <input type="text" className="input-field" placeholder="e.g. 7" value={form.jersey_number} onChange={e => setForm(f => ({ ...f, jersey_number: e.target.value }))} />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Label / Name</label>
+                <input type="text" className="input-field" placeholder="e.g. SMITH" value={form.jersey_label} onChange={e => setForm(f => ({ ...f, jersey_label: e.target.value }))} />
+              </div>
+              {/* Whites */}
+              <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">⚪ Whites</p>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, colored_tshirt_size: f.whites_tshirt_size, colored_lower_size: f.whites_lower_size, colored_sleeve: f.whites_sleeve }))}
+                    className="text-xs text-blue-600 hover:underline">Copy → Colored</button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">T-Shirt Size</label>
+                    <select className="input-field text-sm" value={form.whites_tshirt_size} onChange={e => setForm(f => ({ ...f, whites_tshirt_size: e.target.value }))}>
+                      {TSHIRT_SIZES.map(s => <option key={s} value={s}>{s || '—'}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Lower Size</label>
+                    <select className="input-field text-sm" value={form.whites_lower_size} onChange={e => setForm(f => ({ ...f, whites_lower_size: e.target.value }))}>
+                      {LOWER_SIZES.map(s => <option key={s} value={s}>{s || '—'}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Sleeve</label>
+                    <select className="input-field text-sm" value={form.whites_sleeve} onChange={e => setForm(f => ({ ...f, whites_sleeve: e.target.value }))}>
+                      {SLEEVES.map(s => <option key={s} value={s}>{s || '—'}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              {/* Colored */}
+              <div className="bg-blue-50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">🔵 Colored</p>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, whites_tshirt_size: f.colored_tshirt_size, whites_lower_size: f.colored_lower_size, whites_sleeve: f.colored_sleeve }))}
+                    className="text-xs text-blue-600 hover:underline">Copy → Whites</button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">T-Shirt Size</label>
+                    <select className="input-field text-sm" value={form.colored_tshirt_size} onChange={e => setForm(f => ({ ...f, colored_tshirt_size: e.target.value }))}>
+                      {TSHIRT_SIZES.map(s => <option key={s} value={s}>{s || '—'}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Lower Size</label>
+                    <select className="input-field text-sm" value={form.colored_lower_size} onChange={e => setForm(f => ({ ...f, colored_lower_size: e.target.value }))}>
+                      {LOWER_SIZES.map(s => <option key={s} value={s}>{s || '—'}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Sleeve</label>
+                    <select className="input-field text-sm" value={form.colored_sleeve} onChange={e => setForm(f => ({ ...f, colored_sleeve: e.target.value }))}>
+                      {SLEEVES.map(s => <option key={s} value={s}>{s || '—'}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="pt-2">

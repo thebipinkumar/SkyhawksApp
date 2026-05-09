@@ -9,17 +9,36 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 const router = Router();
 
+const PROFILE_COLS = `id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at,
+  date_of_birth, jersey_number, jersey_label,
+  whites_tshirt_size, whites_lower_size, whites_sleeve,
+  colored_tshirt_size, colored_lower_size, colored_sleeve`;
+
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
-  const user = row((await getDb().execute({ sql: 'SELECT id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]);
+  const user = row((await getDb().execute({ sql: `SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, args: [req.user!.id] })).rows[0]);
   res.json(user);
 });
 
 router.put('/', authenticate, async (req: AuthRequest, res: Response) => {
-  const { name, phone, bio, batting_style, bowling_style } = req.body;
+  const { name, phone, bio, batting_style, bowling_style,
+    date_of_birth, jersey_number, jersey_label,
+    whites_tshirt_size, whites_lower_size, whites_sleeve,
+    colored_tshirt_size, colored_lower_size, colored_sleeve } = req.body;
   if (!name?.trim()) { res.status(400).json({ error: 'Name is required' }); return; }
   const db = getDb();
-  await db.execute({ sql: `UPDATE users SET name=?, phone=?, bio=?, batting_style=?, bowling_style=? WHERE id=?`, args: [name.trim(), phone || null, bio || null, batting_style || null, bowling_style || null, req.user!.id] });
-  res.json(row((await db.execute({ sql: 'SELECT id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]));
+  await db.execute({
+    sql: `UPDATE users SET name=?, phone=?, bio=?, batting_style=?, bowling_style=?,
+          date_of_birth=?, jersey_number=?, jersey_label=?,
+          whites_tshirt_size=?, whites_lower_size=?, whites_sleeve=?,
+          colored_tshirt_size=?, colored_lower_size=?, colored_sleeve=?
+          WHERE id=?`,
+    args: [name.trim(), phone||null, bio||null, batting_style||null, bowling_style||null,
+           date_of_birth||null, jersey_number||null, jersey_label||null,
+           whites_tshirt_size||null, whites_lower_size||null, whites_sleeve||null,
+           colored_tshirt_size||null, colored_lower_size||null, colored_sleeve||null,
+           req.user!.id],
+  });
+  res.json(row((await db.execute({ sql: `SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, args: [req.user!.id] })).rows[0]));
 });
 
 router.post('/avatar', authenticate, (req: AuthRequest, res: Response) => {
