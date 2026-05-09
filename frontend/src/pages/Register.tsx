@@ -1,9 +1,11 @@
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
+import { useClub } from '../contexts/ClubContext';
 import { Trophy, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 export default function Register() {
+  const { club } = useClub();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', phone: '' });
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
@@ -33,10 +35,12 @@ export default function Register() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link to="/public/about" className="block text-center mb-8 group">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-400 rounded-full mb-4 group-hover:bg-yellow-300 transition-colors">
-            <Trophy size={32} className="text-blue-900" />
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 transition-opacity group-hover:opacity-80 ${club?.logo_url ? '' : 'bg-yellow-400 group-hover:bg-yellow-300'}`}>
+            {club?.logo_url
+              ? <img src={club.logo_url} alt="logo" className="w-16 h-16 object-contain rounded-full" />
+              : <Trophy size={32} className="text-blue-900" />}
           </div>
-          <h1 className="text-3xl font-bold text-white">Skyhawks Cricket Club</h1>
+          <h1 className="text-3xl font-bold text-white">{club?.club_name || 'Skyhawks Cricket Club'}</h1>
           <p className="text-blue-200 mt-1 group-hover:text-blue-100 transition-colors">← Back to Home</p>
         </Link>
 

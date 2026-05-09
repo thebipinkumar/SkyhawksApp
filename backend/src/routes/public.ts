@@ -9,8 +9,21 @@ router.get('/banners', async (_req: Request, res: Response) => {
 });
 
 router.get('/members', async (_req: Request, res: Response) => {
-  const result = await getDb().execute(`SELECT id, name, role, batting_style, bowling_style, bio, avatar_url, created_at FROM users WHERE status = 'active' ORDER BY name`);
-  res.json(rows(result.rows));
+  const db = getDb();
+  const usersResult = await db.execute(`SELECT id, name, role, batting_style, bowling_style, bio, avatar_url, created_at FROM users WHERE status = 'active' ORDER BY name`);
+  const userList = rows(usersResult.rows);
+
+  const rolesResult = await db.execute(`SELECT user_id, role FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE status = 'active')`);
+  const rolesMap: Record<number, string[]> = {};
+  for (const r of rows(rolesResult.rows)) {
+    if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
+    rolesMap[r.user_id].push(r.role);
+  }
+
+  res.json(userList.map(u => ({
+    ...u,
+    roles: rolesMap[u.id]?.length ? rolesMap[u.id] : [u.role],
+  })));
 });
 
 router.get('/matches', async (_req: Request, res: Response) => {

@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ClubProvider } from './contexts/ClubContext';
+import api from './utils/api';
 import Navbar from './components/Navbar';
 import PublicNavbar from './components/PublicNavbar';
 import Login from './pages/Login';
@@ -21,7 +23,8 @@ function ProtectedRoute({ children, roles }: { children: JSX.Element; roles?: st
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  const userRoles: string[] = user.roles ?? [user.role];
+  if (roles && !roles.some(r => userRoles.includes(r))) return <Navigate to="/dashboard" replace />;
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -37,7 +40,6 @@ function PublicRoute({ children }: { children: JSX.Element }) {
   return children;
 }
 
-// Public pages — accessible without login, but with the public navbar
 function PublicPageRoute({ children }: { children: JSX.Element }) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,26 +56,38 @@ function AppRoutes() {
       <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
-      {/* Protected */}
+      {/* Protected — any logged-in user */}
       <Route path="/dashboard"     element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/matches"       element={<ProtectedRoute><Matches /></ProtectedRoute>} />
       <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
-      <Route path="/profile"         element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path="/admin/settings" element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
-      <Route path="/team-selection" element={<ProtectedRoute roles={['selector','admin']}><TeamSelection /></ProtectedRoute>} />
-      <Route path="/budget"  element={<ProtectedRoute roles={['manager','admin']}><Budget /></ProtectedRoute>} />
-      <Route path="/users"   element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
+      <Route path="/profile"       element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
-      {/* Public — no login required */}
+      {/* Protected — role-gated */}
+      <Route path="/team-selection" element={<ProtectedRoute roles={['selector','admin']}><TeamSelection /></ProtectedRoute>} />
+      <Route path="/budget"         element={<ProtectedRoute roles={['manager','admin']}><Budget /></ProtectedRoute>} />
+      <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
+      <Route path="/admin/settings" element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
+
+      {/* Public */}
       <Route path="/public/about"   element={<PublicPageRoute><About /></PublicPageRoute>} />
       <Route path="/public/matches" element={<PublicPageRoute><PublicMatches /></PublicPageRoute>} />
       <Route path="/public/members" element={<PublicPageRoute><PublicMembers /></PublicPageRoute>} />
 
-      {/* Redirects */}
       <Route path="/" element={<Navigate to="/public/about" replace />} />
       <Route path="*" element={<Navigate to="/public/about" replace />} />
     </Routes>
   );
+}
+
+const PING_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+function KeepAlive() {
+  useEffect(() => {
+    const ping = () => api.get('/health').catch(() => {});
+    const id = setInterval(ping, PING_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+  return null;
 }
 
 export default function App() {
@@ -81,6 +95,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ClubProvider>
+          <KeepAlive />
           <AppRoutes />
         </ClubProvider>
       </AuthProvider>

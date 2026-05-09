@@ -30,9 +30,9 @@ export default function About() {
 
       {/* ── Hero ── */}
       <div className={`bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white px-4 text-center ${banners.length > 0 ? 'py-12' : 'py-20'}`}>
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-yellow-400 rounded-full mb-6">
+        <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-6 ${data?.logo_url ? '' : 'bg-yellow-400'}`}>
           {data?.logo_url
-            ? <img src={data.logo_url} alt="logo" className="w-14 h-14 object-contain" />
+            ? <img src={data.logo_url} alt="logo" className="w-20 h-20 object-contain rounded-full" />
             : <Trophy size={40} className="text-blue-900" />}
         </div>
         <h1 className="text-4xl font-bold mb-2">{data?.club_name || 'Skyhawks Cricket Club'}</h1>

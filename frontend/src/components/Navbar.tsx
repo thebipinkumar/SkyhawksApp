@@ -5,13 +5,12 @@ import { LogOut, Menu, X, Trophy, UserCircle, Home, Settings } from 'lucide-reac
 import { useState } from 'react';
 
 const navLinks = [
-  { to: '/dashboard',      label: 'Dashboard',      roles: ['player', 'manager', 'selector', 'admin'] },
-  { to: '/matches',        label: 'Matches',         roles: ['player', 'manager', 'selector', 'admin'] },
+  { to: '/matches',        label: 'Matches',        roles: ['player', 'manager', 'selector', 'admin'] },
   { to: '/team-selection', label: 'Team Selection',  roles: ['selector', 'admin'] },
   { to: '/announcements',  label: 'Announcements',   roles: ['player', 'manager', 'selector', 'admin'] },
   { to: '/budget',         label: 'Budget',          roles: ['manager', 'admin'] },
   { to: '/users',          label: 'Members',         roles: ['admin', 'manager', 'selector'] },
-  { to: '/admin/settings', label: 'Club Settings',   roles: ['admin'] },
+  { to: '/admin/settings', label: 'Settings',        roles: ['admin'] },
 ];
 
 export default function Navbar() {
@@ -23,12 +22,15 @@ export default function Navbar() {
 
   const handleLogout = () => { logout(); navigate('/public/about'); };
 
-  const roleBadgeClass = {
+  const userRoles: string[] = user?.roles ?? (user?.role ? [user.role] : []);
+
+  const filteredLinks = navLinks.filter(l => l.roles.some(r => userRoles.includes(r)));
+
+  const primaryRole = userRoles[0] ?? 'player';
+  const roleBadgeClass: Record<string, string> = {
     player: 'badge-player', manager: 'badge-manager',
     selector: 'badge-selector', admin: 'badge-admin',
-  }[user?.role || 'player'];
-
-  const filteredLinks = navLinks.filter(l => user && l.roles.includes(user.role));
+  };
 
   const Logo = () => club?.logo_url
     ? <img src={club.logo_url} alt="logo" className="h-8 w-8 object-contain" />
@@ -38,29 +40,24 @@ export default function Navbar() {
     <nav className="bg-blue-900 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/dashboard" className="flex items-center gap-2 font-bold text-lg shrink-0" title="Home – Dashboard">
+          <Link to="/dashboard" className="flex items-center gap-2 font-bold text-lg shrink-0">
             <Logo />
             <span className="hidden sm:inline">{club?.club_name || 'Skyhawks CC'}</span>
           </Link>
 
           {/* Desktop */}
           <div className="hidden md:flex items-center gap-1">
-            <Link to="/dashboard"
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/dashboard' ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
+            <Link to="/public/about"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/public/about' ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
               <Home size={14} /> Home
             </Link>
-            {filteredLinks.filter(l => l.to !== '/dashboard' && l.to !== '/admin/settings').map(link => (
+            {filteredLinks.map(link => (
               <Link key={link.to} to={link.to}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === link.to ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === link.to ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
+                {link.to === '/admin/settings' && <Settings size={14} />}
                 {link.label}
               </Link>
             ))}
-            {user?.role === 'admin' && (
-              <Link to="/admin/settings"
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/admin/settings' ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
-                <Settings size={14} /> Settings
-              </Link>
-            )}
           </div>
 
           <div className="hidden md:flex items-center gap-2">
@@ -70,7 +67,11 @@ export default function Navbar() {
                 : <UserCircle size={22} className="text-blue-200" />}
               <div className="text-right">
                 <p className="text-sm font-medium leading-tight">{user?.name}</p>
-                <span className={`text-xs ${roleBadgeClass}`}>{user?.role}</span>
+                <div className="flex gap-1 justify-end flex-wrap">
+                  {userRoles.map(r => (
+                    <span key={r} className={`text-xs ${roleBadgeClass[r] ?? 'badge-player'}`}>{r}</span>
+                  ))}
+                </div>
               </div>
             </Link>
             <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-blue-800 transition-colors" title="Logout">
@@ -86,11 +87,11 @@ export default function Navbar() {
         {/* Mobile */}
         {menuOpen && (
           <div className="md:hidden pb-4 space-y-1">
-            <Link to="/dashboard" onClick={() => setMenuOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${location.pathname === '/dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'}`}>
+            <Link to="/public/about" onClick={() => setMenuOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${location.pathname === '/public/about' ? 'bg-blue-700' : 'hover:bg-blue-800'}`}>
               <Home size={14} /> Home
             </Link>
-            {filteredLinks.filter(l => l.to !== '/dashboard').map(link => (
+            {filteredLinks.map(link => (
               <Link key={link.to} to={link.to} onClick={() => setMenuOpen(false)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium ${location.pathname === link.to ? 'bg-blue-700' : 'hover:bg-blue-800'}`}>
                 {link.to === '/admin/settings' && <Settings size={14} />}
@@ -102,7 +103,11 @@ export default function Navbar() {
                 <UserCircle size={18} className="text-blue-200" />
                 <div>
                   <p className="text-sm font-medium">{user?.name}</p>
-                  <span className={`text-xs ${roleBadgeClass}`}>{user?.role}</span>
+                  <div className="flex gap-1 flex-wrap mt-0.5">
+                    {userRoles.map(r => (
+                      <span key={r} className={`text-xs ${roleBadgeClass[r] ?? 'badge-player'}`}>{r}</span>
+                    ))}
+                  </div>
                 </div>
               </Link>
               <button onClick={handleLogout} className="flex items-center gap-1 text-sm hover:text-red-300">

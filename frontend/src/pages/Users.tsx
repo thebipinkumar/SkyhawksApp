@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { User, Role, PendingUser } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Users as UsersIcon, Shield, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
 
 const ROLES: Role[] = ['player', 'manager', 'selector', 'admin'];
 
@@ -13,15 +13,17 @@ const roleBadge: Record<Role, string> = {
 
 export default function UsersPage() {
   const { user: me } = useAuth();
+  const myRoles: string[] = me?.roles ?? (me?.role ? [me.role] : []);
+  const isAdmin   = myRoles.includes('admin');
+  const canManage = myRoles.includes('admin') || myRoles.includes('manager');
+
   const [tab, setTab] = useState<'members' | 'pending'>('members');
   const [users, setUsers] = useState<User[]>([]);
   const [pending, setPending] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-
-  const isAdmin   = me?.role === 'admin';
-  const canManage = me?.role === 'admin' || me?.role === 'manager';
+  const [togglingRole, setTogglingRole] = useState<string | null>(null);
 
   const loadMembers = () => api.get('/users').then(({ data }) => { setUsers(data); setLoading(false); });
   const loadPending = () => api.get('/users/pending').then(({ data }) => setPending(data));
@@ -31,10 +33,21 @@ export default function UsersPage() {
     if (canManage) loadPending();
   }, []);
 
-  const updateRole = async (id: number, role: Role) => {
-    if (!confirm(`Change role to "${role}"?`)) return;
-    await api.patch(`/users/${id}/role`, { role });
-    loadMembers();
+  const toggleRole = async (userId: number, role: Role, hasRole: boolean) => {
+    const key = `${userId}-${role}`;
+    setTogglingRole(key);
+    try {
+      if (hasRole) {
+        await api.delete(`/users/${userId}/roles/${role}`);
+      } else {
+        await api.post(`/users/${userId}/roles/${role}`);
+      }
+      await loadMembers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update role');
+    } finally {
+      setTogglingRole(null);
+    }
   };
 
   const deleteUser = async (id: number, name: string) => {
@@ -46,7 +59,7 @@ export default function UsersPage() {
   const approve = async (id: number, name: string) => {
     if (!confirm(`Approve registration for "${name}"?`)) return;
     await api.patch(`/users/${id}/approve`);
-    loadPending();
+    loadPending(); loadMembers();
   };
 
   const reject = async (id: number, name: string) => {
@@ -57,11 +70,14 @@ export default function UsersPage() {
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
-    return (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
-      (roleFilter === 'all' || u.role === roleFilter);
+    const matchesSearch = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    const matchesRole = roleFilter === 'all' || (u.roles ?? [u.role]).includes(roleFilter as Role);
+    return matchesSearch && matchesRole;
   });
 
-  const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  const fmt = (d?: string) => d
+    ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -81,7 +97,11 @@ export default function UsersPage() {
           <button onClick={() => setTab('pending')}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${tab === 'pending' ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}>
             Pending Approvals
-            {pending.length > 0 && <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${tab === 'pending' ? 'bg-white text-orange-600' : 'bg-orange-600 text-white'}`}>{pending.length}</span>}
+            {pending.length > 0 && (
+              <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${tab === 'pending' ? 'bg-white text-orange-600' : 'bg-orange-600 text-white'}`}>
+                {pending.length}
+              </span>
+            )}
           </button>
         </div>
       )}
@@ -130,7 +150,7 @@ export default function UsersPage() {
       {tab === 'members' && (
         <>
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <input className="input-field max-w-xs" placeholder="Search by name or email..."
+            <input className="input-field max-w-xs" placeholder="Search by name or email…"
               value={search} onChange={e => setSearch(e.target.value)} />
             <div className="flex gap-2 flex-wrap">
               {['all', ...ROLES].map(r => (
@@ -151,43 +171,61 @@ export default function UsersPage() {
             </div>
           ) : (
             <div className="grid gap-3">
-              {filtered.map(u => (
-                <div key={u.id} className="card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
-                      {u.avatar_url
-                        ? <img src={u.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                        : u.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-gray-900">{u.name}</p>
-                        <span className={roleBadge[u.role]}>{u.role}</span>
-                        {u.id === me?.id && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">You</span>}
+              {filtered.map(u => {
+                const userRoles: Role[] = u.roles ?? [u.role];
+                return (
+                  <div key={u.id} className="card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
+                        {u.avatar_url
+                          ? <img src={u.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                          : u.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
-                        <span className="flex items-center gap-1"><Mail size={11} />{u.email}</span>
-                        {u.phone && <span className="flex items-center gap-1"><Phone size={11} />{u.phone}</span>}
-                        {u.created_at && <span className="flex items-center gap-1"><Calendar size={11} />Joined {fmt(u.created_at)}</span>}
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900">{u.name}</p>
+                          {userRoles.map(r => (
+                            <span key={r} className={roleBadge[r]}>{r}</span>
+                          ))}
+                          {u.id === me?.id && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">You</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
+                          <span className="flex items-center gap-1"><Mail size={11} />{u.email}</span>
+                          {u.phone && <span className="flex items-center gap-1"><Phone size={11} />{u.phone}</span>}
+                          {u.created_at && <span className="flex items-center gap-1"><Calendar size={11} />Joined {fmt(u.created_at)}</span>}
+                        </div>
                       </div>
                     </div>
+
+                    {isAdmin && u.id !== me?.id && (
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {/* Multi-role checkboxes */}
+                        <div className="flex gap-2 flex-wrap">
+                          {ROLES.map(r => {
+                            const has = userRoles.includes(r);
+                            const key = `${u.id}-${r}`;
+                            return (
+                              <label key={r}
+                                className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border cursor-pointer transition-colors select-none
+                                  ${has ? `${roleBadge[r]} border-transparent` : 'border-gray-200 text-gray-500 hover:border-gray-400'}
+                                  ${togglingRole === key ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <input type="checkbox" className="hidden"
+                                  checked={has}
+                                  onChange={() => toggleRole(u.id, r, has)} />
+                                {r}
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <button onClick={() => deleteUser(u.id, u.name)}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Delete user">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {isAdmin && u.id !== me?.id && (
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="flex items-center gap-1">
-                        <Shield size={14} className="text-gray-400" />
-                        <select value={u.role} onChange={e => updateRole(u.id, e.target.value as Role)}
-                          className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white">
-                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                      </div>
-                      <button onClick={() => deleteUser(u.id, u.name)} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Delete user">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>

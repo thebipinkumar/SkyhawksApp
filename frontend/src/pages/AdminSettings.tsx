@@ -13,19 +13,19 @@ export default function AdminSettings() {
     club_name: '', tagline: '', founded: '', description: '',
     contact_email: '', ground: '', achievements: [''] as string[],
   });
-  const [logoUrl, setLogoUrl]       = useState<string | null>(null);
-  const [saving, setSaving]         = useState(false);
-  const [uploading, setUploading]   = useState(false);
-  const [msg, setMsg]               = useState('');
-  const [err, setErr]               = useState('');
-  const logoRef                     = useRef<HTMLInputElement>(null);
+  const [logoUrl, setLogoUrl]     = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg]             = useState('');
+  const [err, setErr]             = useState('');
+  const logoRef                   = useRef<HTMLInputElement>(null);
 
   // ── Banner state ──
-  const [banners, setBanners]               = useState<BannerImage[]>([]);
+  const [banners, setBanners]                 = useState<BannerImage[]>([]);
   const [bannerUploading, setBannerUploading] = useState(false);
-  const [editingCaption, setEditingCaption] = useState<Record<number, string>>({});
-  const [savingCaption, setSavingCaption]   = useState<number | null>(null);
-  const bannerRef                           = useRef<HTMLInputElement>(null);
+  const [editingCaption, setEditingCaption]   = useState<Record<number, string>>({});
+  const [savingCaption, setSavingCaption]     = useState<number | null>(null);
+  const bannerRef                             = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.get('/settings').then(({ data }) => {
@@ -134,7 +134,7 @@ export default function AdminSettings() {
         <div className="flex items-center gap-6">
           <div className="flex-shrink-0">
             {logoUrl ? (
-              <img src={logoUrl!} alt="Club logo"
+              <img src={logoUrl} alt="Club logo"
                 className="w-24 h-24 object-contain rounded-xl border border-gray-200 bg-gray-50 p-2" />
             ) : (
               <div className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400">
@@ -172,11 +172,9 @@ export default function AdminSettings() {
           </button>
           <input ref={bannerRef} type="file" accept="image/*" multiple className="hidden" onChange={handleBannerUpload} />
         </div>
-
         <p className="text-sm text-gray-500 mb-4">
           Photos cycle automatically on the public homepage. You can select multiple files at once. Max 5 MB each.
         </p>
-
         {banners.length === 0 ? (
           <div className="border-2 border-dashed border-gray-200 rounded-xl py-12 text-center text-gray-400">
             <GalleryHorizontal size={40} className="mx-auto mb-2 opacity-40" />
@@ -186,10 +184,7 @@ export default function AdminSettings() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {banners.map((b, idx) => (
               <div key={b.id} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                <img src={b.image_url} alt={b.caption || `Banner ${idx + 1}`}
-                  className="w-full h-36 object-cover" />
-
-                {/* Overlay actions */}
+                <img src={b.image_url} alt={b.caption || `Banner ${idx + 1}`} className="w-full h-36 object-cover" />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button onClick={() => startEditCaption(b)}
                     className="bg-white/90 hover:bg-white text-gray-800 p-2 rounded-lg" title="Edit caption">
@@ -200,23 +195,19 @@ export default function AdminSettings() {
                     <Trash2 size={14} />
                   </button>
                 </div>
-
-                {/* Order badge */}
                 <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
                   #{idx + 1}
                 </div>
-
-                {/* Caption display / edit */}
                 {editingCaption[b.id] !== undefined ? (
                   <div className="p-2 flex gap-1">
-                    <input
-                      autoFocus
-                      className="input-field text-xs py-1 px-2 flex-1"
+                    <input autoFocus className="input-field text-xs py-1 px-2 flex-1"
                       value={editingCaption[b.id]}
                       onChange={e => setEditingCaption(prev => ({ ...prev, [b.id]: e.target.value }))}
-                      onKeyDown={e => { if (e.key === 'Enter') saveCaption(b); if (e.key === 'Escape') setEditingCaption(prev => { const n = { ...prev }; delete n[b.id]; return n; }); }}
-                      placeholder="Add caption…"
-                    />
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveCaption(b);
+                        if (e.key === 'Escape') setEditingCaption(prev => { const n = { ...prev }; delete n[b.id]; return n; });
+                      }}
+                      placeholder="Add caption…" />
                     <button onClick={() => saveCaption(b)} disabled={savingCaption === b.id}
                       className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg flex-shrink-0">
                       <Check size={13} />
@@ -244,7 +235,6 @@ export default function AdminSettings() {
         <h2 className="font-bold text-gray-900 flex items-center gap-2">
           <Settings size={18} className="text-blue-600" /> About Page Content
         </h2>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Club Name *</label>
@@ -257,20 +247,17 @@ export default function AdminSettings() {
               onChange={e => setForm(f => ({ ...f, founded: e.target.value }))} />
           </div>
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
           <input className="input-field" value={form.tagline} placeholder="e.g. Play Hard. Fly High."
             onChange={e => setForm(f => ({ ...f, tagline: e.target.value }))} />
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea className="input-field" rows={4} value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             placeholder="Tell visitors about the club…" />
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
@@ -283,7 +270,6 @@ export default function AdminSettings() {
               onChange={e => setForm(f => ({ ...f, ground: e.target.value }))} />
           </div>
         </div>
-
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700">Achievements</label>
@@ -303,7 +289,6 @@ export default function AdminSettings() {
             ))}
           </div>
         </div>
-
         <div className="pt-2">
           <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
             <Save size={16} /> {saving ? 'Saving…' : 'Save Settings'}

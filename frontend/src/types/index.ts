@@ -6,7 +6,8 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: Role;
+  role: Role;        // legacy primary role (kept for DB compat)
+  roles: Role[];     // all assigned roles
   status?: UserStatus;
   phone?: string;
   bio?: string;

@@ -131,12 +131,26 @@ export async function initDb(): Promise<void> {
       FOREIGN KEY (player_id) REFERENCES users(id),
       UNIQUE(match_id, player_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_roles (
+      user_id INTEGER NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('player','manager','selector','admin')),
+      PRIMARY KEY (user_id, role),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
   `);
 
   // Migrate: add status column to users for existing databases
   try {
     await db.execute(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
   } catch { /* column already exists */ }
+
+  // Migrate: populate user_roles from existing role column (run once)
+  const roleCount = await db.execute('SELECT COUNT(*) as n FROM user_roles');
+  const userCount = await db.execute(`SELECT COUNT(*) as n FROM users WHERE status = 'active'`);
+  if (Number(roleCount.rows[0][0]) === 0 && Number(userCount.rows[0][0]) > 0) {
+    await db.execute(`INSERT OR IGNORE INTO user_roles (user_id, role) SELECT id, role FROM users WHERE status = 'active'`);
+  }
 
   // Seed default club_settings row
   const settingsRow = await db.execute('SELECT COUNT(*) as n FROM club_settings');
