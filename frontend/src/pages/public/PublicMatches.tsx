@@ -53,6 +53,23 @@ export default function PublicMatches() {
                       <span className="flex items-center gap-1"><Calendar size={13} />{formatDate(m.match_date)}</span>
                       <span className="flex items-center gap-1"><Clock size={13} />{m.match_time}</span>
                     </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {m.ball_type && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.ball_type === 'Red' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                          🏏 {m.ball_type} Ball
+                        </span>
+                      )}
+                      {m.attire && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium">
+                          👕 {m.attire} Attire
+                        </span>
+                      )}
+                      {m.match_fee != null && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium">
+                          💰 Fee: £{m.match_fee}
+                        </span>
+                      )}
+                    </div>
                     {m.notes && <p className="text-sm text-gray-400 mt-2 italic">{m.notes}</p>}
                   </div>
                   <div className="flex-shrink-0 text-right">
