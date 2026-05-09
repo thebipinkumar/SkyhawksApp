@@ -1,0 +1,44 @@
+import { Router, Response } from 'express';
+import { getDb, row, rows } from '../db/database.js';
+import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
+
+const router = Router();
+
+router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
+  const result = await getDb().execute(`SELECT m.*, u.name as created_by_name FROM matches m JOIN users u ON m.created_by = u.id ORDER BY m.match_date DESC, m.match_time DESC`);
+  res.json(rows(result.rows));
+});
+
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const match = row((await db.execute({ sql: `SELECT m.*, u.name as created_by_name FROM matches m JOIN users u ON m.created_by = u.id WHERE m.id = ?`, args: [req.params.id] })).rows[0]);
+  if (!match) { res.status(404).json({ error: 'Match not found' }); return; }
+  const team = rows((await db.execute({ sql: `SELECT ts.*, u.name as player_name, u.email as player_email FROM team_selections ts JOIN users u ON ts.player_id = u.id WHERE ts.match_id = ? ORDER BY u.name`, args: [req.params.id] })).rows);
+  res.json({ ...match, team });
+});
+
+router.post('/', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
+  const { title, opponent, venue, match_date, match_time, match_type, notes } = req.body;
+  if (!title || !opponent || !venue || !match_date || !match_time) { res.status(400).json({ error: 'Title, opponent, venue, date and time are required' }); return; }
+  const db = getDb();
+  const result = await db.execute({ sql: `INSERT INTO matches (title,opponent,venue,match_date,match_time,match_type,notes,created_by) VALUES (?,?,?,?,?,?,?,?)`, args: [title, opponent, venue, match_date, match_time, match_type || 'T20', notes || null, req.user!.id] });
+  const match = row((await db.execute({ sql: 'SELECT * FROM matches WHERE id = ?', args: [Number(result.lastInsertRowid)] })).rows[0]);
+  res.status(201).json(match);
+});
+
+router.put('/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
+  const { title, opponent, venue, match_date, match_time, match_type, status, result: matchResult, notes } = req.body;
+  const db = getDb();
+  if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
+  await db.execute({ sql: `UPDATE matches SET title=?,opponent=?,venue=?,match_date=?,match_time=?,match_type=?,status=?,result=?,notes=? WHERE id=?`, args: [title, opponent, venue, match_date, match_time, match_type, status, matchResult || null, notes || null, req.params.id] });
+  res.json(row((await db.execute({ sql: 'SELECT * FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]));
+});
+
+router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  await db.execute({ sql: 'DELETE FROM team_selections WHERE match_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM matches WHERE id = ?', args: [req.params.id] });
+  res.json({ message: 'Match deleted' });
+});
+
+export default router;
