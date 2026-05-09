@@ -40,12 +40,21 @@ export default function BannerSlider({ banners, autoPlayMs = 4000 }: Props) {
     <div className="relative w-full overflow-hidden bg-gray-900 select-none"
          style={{ height: 'clamp(260px, 45vw, 520px)' }}>
 
-      {/* Slide image */}
+      {/* Blurred background — fills the container so there are no black bars */}
+      <img
+        key={`bg-${slide.id}`}
+        src={slide.image_url}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
+      />
+
+      {/* Sharp foreground image at its natural proportions */}
       <img
         key={slide.id}
         src={slide.image_url}
         alt={slide.caption || 'Banner'}
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ${animating ? 'opacity-0' : 'opacity-100'}`}
       />
 
       {/* Dark gradient overlay */}
