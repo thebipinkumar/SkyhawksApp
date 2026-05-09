@@ -42,7 +42,7 @@ export default function Matches() {
   const userRoles: string[] = user?.roles ?? (user?.role ? [user.role] : []);
   const canManage  = userRoles.some(r => ['manager', 'admin'].includes(r));
   const canSeeAll  = userRoles.some(r => ['manager', 'admin', 'selector'].includes(r));
-  const isPlayer   = userRoles.includes('player') && !canSeeAll;
+  const isPlayer   = userRoles.includes('player');
 
   const load = async () => {
     try { const { data } = await api.get('/matches'); setMatches(data); }
