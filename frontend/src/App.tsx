@@ -7,6 +7,8 @@ import Navbar from './components/Navbar';
 import PublicNavbar from './components/PublicNavbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Matches from './pages/Matches';
 import TeamSelection from './pages/TeamSelection';
@@ -53,8 +55,10 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Auth */}
-      <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/login"            element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/register"         element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/forgot-password"  element={<ForgotPassword />} />
+      <Route path="/reset-password"   element={<ResetPassword />} />
 
       {/* Protected — any logged-in user */}
       <Route path="/dashboard"     element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

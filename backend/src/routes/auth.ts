@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { getDb, row, rows } from '../db/database.js';
 import { signToken, authenticate, AuthRequest } from '../middleware/auth.js';
+import { sendPasswordResetEmail } from '../utils/email.js';
 
 const router = Router();
 
@@ -46,6 +48,37 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   const roleRows = await db.execute({ sql: 'SELECT role FROM user_roles WHERE user_id = ?', args: [req.user!.id] });
   const roles = rows(roleRows.rows).map(r => r.role as string);
   res.json({ ...user, roles: roles.length > 0 ? roles : [user.role] });
+});
+
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) { res.status(400).json({ error: 'Email is required' }); return; }
+  const db = getDb();
+  const user = row((await db.execute({ sql: `SELECT id, name, email, status FROM users WHERE email = ?`, args: [email.toLowerCase()] })).rows[0]);
+  // Always respond OK to avoid user enumeration
+  if (!user || user.status !== 'active') { res.json({ message: 'If that email is registered, a reset link has been sent.' }); return; }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+  await db.execute({ sql: `UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?`, args: [token, expires, user.id] });
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  await sendPasswordResetEmail(user.email, user.name, `${frontendUrl}/reset-password?token=${token}`);
+  res.json({ message: 'If that email is registered, a reset link has been sent.' });
+});
+
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const { token, password } = req.body;
+  if (!token || !password) { res.status(400).json({ error: 'Token and new password are required' }); return; }
+  if (password.length < 6) { res.status(400).json({ error: 'Password must be at least 6 characters' }); return; }
+  const db = getDb();
+  const user = row((await db.execute({ sql: `SELECT id, reset_token_expires FROM users WHERE reset_token = ?`, args: [token] })).rows[0]);
+  if (!user) { res.status(400).json({ error: 'Invalid or expired reset link' }); return; }
+  if (new Date(user.reset_token_expires) < new Date()) { res.status(400).json({ error: 'Reset link has expired. Please request a new one.' }); return; }
+
+  const hash = bcrypt.hashSync(password, 10);
+  await db.execute({ sql: `UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?`, args: [hash, user.id] });
+  res.json({ message: 'Password reset successfully. You can now log in.' });
 });
 
 export default router;

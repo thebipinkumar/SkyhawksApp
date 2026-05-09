@@ -88,12 +88,17 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-600 mt-6">
-            Not a member?{' '}
-            <Link to="/register" className="text-blue-700 font-medium hover:underline">
-              Register here
-            </Link>
-          </p>
+          <div className="text-center mt-6 space-y-2">
+            <p className="text-sm text-gray-600">
+              Not a member?{' '}
+              <Link to="/register" className="text-blue-700 font-medium hover:underline">Register here</Link>
+            </p>
+            <p className="text-sm">
+              <Link to="/forgot-password" className="text-gray-400 hover:text-blue-600 transition-colors">
+                Forgot your password?
+              </Link>
+            </p>
+          </div>
         </div>
 
       </div>

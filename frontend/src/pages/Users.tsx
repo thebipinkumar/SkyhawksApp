@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { User, Role, PendingUser } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle, KeyRound, X } from 'lucide-react';
 
 const ROLES: Role[] = ['player', 'manager', 'selector', 'admin'];
 
@@ -24,6 +24,9 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [togglingRole, setTogglingRole] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [resetPw, setResetPw] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
 
   const loadMembers = () => api.get('/users').then(({ data }) => { setUsers(data); setLoading(false); });
   const loadPending = () => api.get('/users/pending').then(({ data }) => setPending(data));
@@ -78,6 +81,17 @@ export default function UsersPage() {
   const fmt = (d?: string) => d
     ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
+
+  const submitResetPw = async () => {
+    if (!resetTarget || resetPw.length < 6) { setResetMsg('Password must be at least 6 characters'); return; }
+    try {
+      await api.post(`/users/${resetTarget.id}/reset-password`, { password: resetPw });
+      setResetMsg('Password updated successfully!');
+      setTimeout(() => { setResetTarget(null); setResetPw(''); setResetMsg(''); }, 1500);
+    } catch (err: any) {
+      setResetMsg(err.response?.data?.error || 'Failed to reset password');
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -217,6 +231,10 @@ export default function UsersPage() {
                             );
                           })}
                         </div>
+                        <button onClick={() => { setResetTarget(u); setResetPw(''); setResetMsg(''); }}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Reset password">
+                          <KeyRound size={16} />
+                        </button>
                         <button onClick={() => deleteUser(u.id, u.name)}
                           className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Delete user">
                           <Trash2 size={16} />
@@ -229,6 +247,28 @@ export default function UsersPage() {
             </div>
           )}
         </>
+      )}
+      {/* Reset Password Modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2"><KeyRound size={18} className="text-blue-600" /> Reset Password</h3>
+              <button onClick={() => { setResetTarget(null); setResetMsg(''); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Set a new password for <strong>{resetTarget.name}</strong>.</p>
+            {resetMsg && (
+              <div className={`rounded-lg p-3 mb-3 text-sm ${resetMsg.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{resetMsg}</div>
+            )}
+            <input type="password" className="input-field mb-4" placeholder="New password (min 6 chars)"
+              value={resetPw} onChange={e => setResetPw(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitResetPw()} autoFocus />
+            <div className="flex gap-3">
+              <button onClick={() => { setResetTarget(null); setResetMsg(''); }} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={submitResetPw} className="btn-primary flex-1">Update Password</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

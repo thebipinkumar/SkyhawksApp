@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { getDb, rows, row } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
 
@@ -72,6 +73,15 @@ router.delete('/:id/roles/:role', authenticate, authorize('admin'), async (req: 
   if (Number(remaining[0]) <= 1) { res.status(400).json({ error: 'Cannot remove the last role from a user' }); return; }
   await getDb().execute({ sql: 'DELETE FROM user_roles WHERE user_id = ? AND role = ?', args: [id, role] });
   res.json({ message: 'Role removed' });
+});
+
+// Admin reset a member's password
+router.post('/:id/reset-password', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  const { password } = req.body;
+  if (!password || password.length < 6) { res.status(400).json({ error: 'Password must be at least 6 characters' }); return; }
+  const hash = bcrypt.hashSync(password, 10);
+  await getDb().execute({ sql: `UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?`, args: [hash, req.params.id] });
+  res.json({ message: 'Password updated' });
 });
 
 // Delete user (admin only)

@@ -66,7 +66,7 @@ export default function PublicMatches() {
                       )}
                       {m.match_fee != null && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium">
-                          💰 Fee: £{m.match_fee}
+                          💰 Fee: S${m.match_fee}
                         </span>
                       )}
                     </div>

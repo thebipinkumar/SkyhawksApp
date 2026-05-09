@@ -46,7 +46,7 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
       isCaptain:     !!s.is_captain,
       isViceCaptain: !!s.is_vice_captain,
     })),
-    announcedBy: req.user!.name,
+    announcedBy: 'Selectors Committee',
   });
 
   await db.execute({ sql: 'INSERT INTO announcements (match_id, message, sent_by) VALUES (?,?,?)', args: [req.params.matchId, `Team announced for ${match.title} vs ${match.opponent} on ${match.match_date}`, req.user!.id] });

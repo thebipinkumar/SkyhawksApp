@@ -64,7 +64,7 @@ export default function Budget() {
     await api.delete(`/budget/${id}`); load();
   };
 
-  const fmt = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
+  const fmt = (n: number) => new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD', maximumFractionDigits: 0 }).format(n || 0);
   const filtered = filterType === 'all' ? entries : entries.filter(e => e.type === filterType);
 
   const generatePDF = async () => {

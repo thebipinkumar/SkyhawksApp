@@ -148,6 +148,10 @@ export async function initDb(): Promise<void> {
     await db.execute(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
   } catch { /* column already exists */ }
 
+  // Migrate: add password reset token columns
+  try { await db.execute(`ALTER TABLE users ADD COLUMN reset_token TEXT`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`); } catch { /* exists */ }
+
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {
     await db.execute('SELECT ball_type FROM matches LIMIT 1');

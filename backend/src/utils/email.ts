@@ -22,16 +22,18 @@ function buildHtml(data: AnnouncementEmailData): string {
     const badge = p.isCaptain ? ' <span style="background:#1e3a8a;color:#fff;font-size:11px;padding:1px 6px;border-radius:9999px;">Captain</span>'
                 : p.isViceCaptain ? ' <span style="background:#1e40af;color:#fff;font-size:11px;padding:1px 6px;border-radius:9999px;">Vice-Captain</span>'
                 : '';
+    const roleCell = p.role ? `<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#64748b;">${p.role}</td>`
+                            : `<td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#cbd5e1;">—</td>`;
     return `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">${p.name}${badge}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;color:#64748b;text-transform:capitalize;">${p.role}</td>
+      ${roleCell}
     </tr>`;
   }).join('');
 
   const extraBadges = [
     data.ballType ? `🏏 ${data.ballType} Ball` : null,
     data.attire   ? `👕 ${data.attire} Attire` : null,
-    data.matchFee != null ? `💰 Match Fee: £${data.matchFee}` : null,
+    data.matchFee != null ? `💰 Match Fee: S$${data.matchFee}` : null,
   ].filter(Boolean).map(b =>
     `<span style="display:inline-block;background:#f1f5f9;color:#475569;font-size:12px;padding:3px 10px;border-radius:9999px;margin:2px 4px 2px 0;">${b}</span>`
   ).join('');
@@ -134,4 +136,36 @@ export async function sendAnnouncementEmails(
     console.error('Resend error:', err);
     return { sent: 0, error: err.message };
   }
+}
+
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string): Promise<void> {
+  if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping reset email'); return; }
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr><td style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:28px 32px;text-align:center;">
+          <p style="margin:0 0 4px;color:#93c5fd;font-size:13px;text-transform:uppercase;letter-spacing:0.05em;">Skyhawks Cricket Club</p>
+          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Password Reset</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 16px;color:#334155;">Hi <strong>${name}</strong>,</p>
+          <p style="margin:0 0 24px;color:#64748b;line-height:1.6;">We received a request to reset your password. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
+          <div style="text-align:center;margin-bottom:24px;">
+            <a href="${resetUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">Reset My Password</a>
+          </div>
+          <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;">If the button doesn't work, copy this link:</p>
+          <p style="margin:0 0 24px;color:#64748b;font-size:12px;word-break:break-all;">${resetUrl}</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
+          <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 12px;">
+          <p style="margin:0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  await resend.emails.send({ from: FROM, to, subject: 'Reset your Skyhawks password', html });
 }

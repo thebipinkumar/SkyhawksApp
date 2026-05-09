@@ -54,7 +54,7 @@ export default function TeamSelectionPage() {
       const sel = team.find(t => t.player_id === p.player_id);
       init[p.player_id] = sel
         ? { selected: true, role: sel.role_in_match, is_captain: !!sel.is_captain, is_vice_captain: !!sel.is_vice_captain }
-        : { selected: false, role: 'Batsman', is_captain: false, is_vice_captain: false };
+        : { selected: false, role: '', is_captain: false, is_vice_captain: false };
     });
     setSelections(init);
     setLoadingPlayers(false);
@@ -119,7 +119,7 @@ export default function TeamSelectionPage() {
   const selectedCount = Object.values(selections).filter(v => v.selected).length;
   const availableCount = matchPlayers.filter(p => p.status === 'available').length;
   const maybeCount = matchPlayers.filter(p => p.status === 'maybe').length;
-  const ROLES = ['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper', 'Captain'];
+  const ROLES = ['', 'Captain', 'Vice-Captain', 'Wicket Keeper', 'Drinks Duty', 'Match Fee Collection'];
 
   const availabilityBadge = (status: AvailabilityStatus) => {
     if (status === 'available') return <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Available</span>;
@@ -207,7 +207,7 @@ export default function TeamSelectionPage() {
                               onChange={e => setSelections(s => ({ ...s, [player.player_id]: { ...s[player.player_id], role: e.target.value } }))}
                               className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white"
                             >
-                              {ROLES.map(r => <option key={r}>{r}</option>)}
+                              {ROLES.map(r => <option key={r} value={r}>{r || '— No Responsibility —'}</option>)}
                             </select>
                             <button onClick={() => setCaptain(player.player_id)} title="Set as Captain"
                               className={`p-1 rounded ${sel.is_captain ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}>
