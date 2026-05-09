@@ -96,12 +96,6 @@ export default function Login() {
           </p>
         </div>
 
-        <div className="mt-4 bg-blue-800/50 rounded-xl p-4 text-blue-100 text-xs">
-          <p className="font-semibold mb-1">Demo Accounts:</p>
-          <p>Admin: admin@skyhawks.com / Admin@123</p>
-          <p>Manager: manager@skyhawks.com / Manager@123</p>
-          <p>Selector: selector@skyhawks.com / Selector@123</p>
-        </div>
       </div>
     </div>
   );
