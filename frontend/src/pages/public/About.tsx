@@ -69,13 +69,13 @@ export default function About() {
         </div>
 
         {/* Achievements */}
-        {data?.achievements?.length > 0 && (
+        {(data?.achievements?.length ?? 0) > 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Award size={22} className="text-yellow-500" /> Achievements
             </h2>
             <ul className="space-y-3">
-              {data.achievements.map(a => (
+              {data!.achievements.map(a => (
                 <li key={a} className="flex items-center gap-3 text-gray-700">
                   <span className="w-2 h-2 bg-yellow-400 rounded-full flex-shrink-0" />
                   {a}
