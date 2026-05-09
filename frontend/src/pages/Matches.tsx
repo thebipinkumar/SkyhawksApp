@@ -4,12 +4,15 @@ import api from '../utils/api';
 import { Match, AvailabilityRecord, AvailabilityStatus } from '../types';
 import { Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, HelpCircle, MinusCircle } from 'lucide-react';
 
-const MATCH_TYPES = ['T20', 'ODI', 'Test', 'Practice'];
+const MATCH_TYPES = ['T20', 'T25', 'T30'];
 const STATUS_OPTIONS = ['scheduled', 'completed', 'cancelled'];
+const BALL_TYPES = ['Red', 'White'];
+const ATTIRE_OPTIONS = ['White', 'Colored'];
 
 const emptyForm = {
   title: '', opponent: '', venue: '', match_date: '', match_time: '',
-  match_type: 'T20', status: 'scheduled', result: '', notes: ''
+  match_type: 'T20', status: 'scheduled', result: '', notes: '',
+  ball_type: 'White', attire: 'Colored', match_fee: ''
 };
 
 const availabilityConfig: Record<AvailabilityStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -36,9 +39,10 @@ export default function Matches() {
   const [expandedAvail, setExpandedAvail] = useState<Record<number, boolean>>({});
   const [updatingAvail, setUpdatingAvail] = useState<number | null>(null);
 
-  const canManage  = ['manager', 'admin'].includes(user?.role || '');
-  const canSeeAll  = ['manager', 'admin', 'selector'].includes(user?.role || '');
-  const isPlayer   = user?.role === 'player';
+  const userRoles: string[] = user?.roles ?? (user?.role ? [user.role] : []);
+  const canManage  = userRoles.some(r => ['manager', 'admin'].includes(r));
+  const canSeeAll  = userRoles.some(r => ['manager', 'admin', 'selector'].includes(r));
+  const isPlayer   = userRoles.includes('player') && !canSeeAll;
 
   const load = async () => {
     try { const { data } = await api.get('/matches'); setMatches(data); }
@@ -73,14 +77,16 @@ export default function Matches() {
   const openCreate = () => { setForm(emptyForm); setEditMatch(null); setShowForm(true); setError(''); };
   const openEdit = (m: Match) => {
     setForm({ title: m.title, opponent: m.opponent, venue: m.venue, match_date: m.match_date,
-      match_time: m.match_time, match_type: m.match_type, status: m.status, result: m.result || '', notes: m.notes || '' });
+      match_time: m.match_time, match_type: m.match_type, status: m.status, result: m.result || '', notes: m.notes || '',
+      ball_type: m.ball_type || 'White', attire: m.attire || 'Colored', match_fee: m.match_fee != null ? String(m.match_fee) : '' });
     setEditMatch(m); setShowForm(true); setError('');
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault(); setSubmitting(true); setError('');
     try {
-      editMatch ? await api.put(`/matches/${editMatch.id}`, form) : await api.post('/matches', form);
+      const payload = { ...form, match_fee: form.match_fee !== '' ? Number(form.match_fee) : null };
+      editMatch ? await api.put(`/matches/${editMatch.id}`, payload) : await api.post('/matches', payload);
       setShowForm(false); load();
     } catch (err: any) { setError(err.response?.data?.error || 'Failed to save match'); }
     finally { setSubmitting(false); }
@@ -163,6 +169,23 @@ export default function Matches() {
                       <span className="flex items-center gap-1"><Calendar size={14} />{formatDate(match.match_date)}</span>
                       <span className="flex items-center gap-1"><Clock size={14} />{match.match_time}</span>
                     </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {match.ball_type && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${match.ball_type === 'Red' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                          🏏 {match.ball_type} Ball
+                        </span>
+                      )}
+                      {match.attire && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium">
+                          👕 {match.attire} Attire
+                        </span>
+                      )}
+                      {match.match_fee != null && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium">
+                          💰 Fee: £{match.match_fee}
+                        </span>
+                      )}
+                    </div>
                     {match.result && <p className="mt-2 text-sm text-green-700 font-medium">Result: {match.result}</p>}
                     {match.notes && <p className="mt-1 text-sm text-gray-500 italic">{match.notes}</p>}
                   </div>
@@ -171,7 +194,7 @@ export default function Matches() {
                       <button onClick={() => openEdit(match)} className="btn-secondary flex items-center gap-1 text-sm py-1.5 px-3">
                         <Edit2 size={14} /> Edit
                       </button>
-                      {user?.role === 'admin' && (
+                      {userRoles.includes('admin') && (
                         <button onClick={() => handleDelete(match.id)} className="btn-danger flex items-center gap-1 text-sm py-1.5 px-3">
                           <Trash2 size={14} /> Delete
                         </button>
@@ -294,6 +317,25 @@ export default function Matches() {
                     </select>
                   </div>
                 )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ball Type</label>
+                  <select className="input-field" value={form.ball_type} onChange={e => setForm(f => ({...f, ball_type: e.target.value}))}>
+                    {BALL_TYPES.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Attire</label>
+                  <select className="input-field" value={form.attire} onChange={e => setForm(f => ({...f, attire: e.target.value}))}>
+                    {ATTIRE_OPTIONS.map(a => <option key={a}>{a}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Match Fee <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input type="number" min="0" step="0.01" className="input-field" value={form.match_fee}
+                  onChange={e => setForm(f => ({...f, match_fee: e.target.value}))} placeholder="e.g. 10" />
               </div>
               {editMatch && (
                 <div>

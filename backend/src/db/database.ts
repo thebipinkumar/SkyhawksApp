@@ -50,10 +50,13 @@ export async function initDb(): Promise<void> {
       venue TEXT NOT NULL,
       match_date TEXT NOT NULL,
       match_time TEXT NOT NULL,
-      match_type TEXT NOT NULL DEFAULT 'T20' CHECK(match_type IN ('T20','ODI','Test','Practice')),
+      match_type TEXT NOT NULL DEFAULT 'T20',
       status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled','completed','cancelled')),
       result TEXT,
       notes TEXT,
+      ball_type TEXT NOT NULL DEFAULT 'White',
+      attire TEXT NOT NULL DEFAULT 'Colored',
+      match_fee REAL,
       created_by INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (created_by) REFERENCES users(id)
@@ -144,6 +147,35 @@ export async function initDb(): Promise<void> {
   try {
     await db.execute(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
   } catch { /* column already exists */ }
+
+  // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
+  try {
+    await db.execute('SELECT ball_type FROM matches LIMIT 1');
+  } catch {
+    await db.execute(`CREATE TABLE IF NOT EXISTS matches_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      opponent TEXT NOT NULL,
+      venue TEXT NOT NULL,
+      match_date TEXT NOT NULL,
+      match_time TEXT NOT NULL,
+      match_type TEXT NOT NULL DEFAULT 'T20',
+      status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled','completed','cancelled')),
+      result TEXT,
+      notes TEXT,
+      ball_type TEXT NOT NULL DEFAULT 'White',
+      attire TEXT NOT NULL DEFAULT 'Colored',
+      match_fee REAL,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`);
+    await db.execute(`INSERT INTO matches_new
+      SELECT id,title,opponent,venue,match_date,match_time,match_type,status,result,notes,'White','Colored',NULL,created_by,created_at
+      FROM matches`);
+    await db.execute('DROP TABLE matches');
+    await db.execute('ALTER TABLE matches_new RENAME TO matches');
+  }
 
   // Migrate: populate user_roles from existing role column (run once)
   const roleCount = await db.execute('SELECT COUNT(*) as n FROM user_roles');

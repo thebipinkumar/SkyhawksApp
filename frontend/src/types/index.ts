@@ -40,10 +40,13 @@ export interface Match {
   venue: string;
   match_date: string;
   match_time: string;
-  match_type: 'T20' | 'ODI' | 'Test' | 'Practice';
+  match_type: string;
   status: 'scheduled' | 'completed' | 'cancelled';
   result?: string;
   notes?: string;
+  ball_type?: 'Red' | 'White';
+  attire?: 'White' | 'Colored';
+  match_fee?: number | null;
   created_by: number;
   created_by_name: string;
   created_at: string;
