@@ -36,6 +36,8 @@ router.put('/:id', authenticate, authorize('manager', 'admin'), async (req: Auth
 
 router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   const db = getDb();
+  if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
+  await db.execute({ sql: 'DELETE FROM announcements WHERE match_id = ?', args: [req.params.id] });
   await db.execute({ sql: 'DELETE FROM team_selections WHERE match_id = ?', args: [req.params.id] });
   await db.execute({ sql: 'DELETE FROM matches WHERE id = ?', args: [req.params.id] });
   res.json({ message: 'Match deleted' });

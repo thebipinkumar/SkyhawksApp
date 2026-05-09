@@ -62,8 +62,12 @@ export default function Matches() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this match?')) return;
-    await api.delete(`/matches/${id}`);
-    load();
+    try {
+      await api.delete(`/matches/${id}`);
+      load();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete match. Please try again.');
+    }
   };
 
   const filtered = filter === 'all' ? matches : matches.filter(m => m.status === filter);
