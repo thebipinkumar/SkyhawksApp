@@ -47,6 +47,7 @@ export interface Match {
   ball_type?: 'Red' | 'White';
   attire?: 'White' | 'Colored';
   match_fee?: number | null;
+  scorecard_url?: string | null;
   created_by: number;
   created_by_name: string;
   created_at: string;

@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import BannerSlider from '../../components/BannerSlider';
-import { Trophy, Users, Calendar, Mail, MapPin, Award } from 'lucide-react';
+import { Trophy, Users, Calendar, Mail, MapPin, Award, Instagram, Facebook } from 'lucide-react';
 
 interface AboutData {
   club_name: string; founded: string; tagline: string; description: string;
   stats: { members: number; matches: number; wins: number };
   contact_email: string; ground: string; achievements: string[];
-  logo_url: string | null;
+  logo_url: string | null; instagram_url: string | null; facebook_url: string | null;
 }
 
 interface Banner { id: number; image_url: string; caption: string | null; sort_order: number; }
@@ -93,6 +93,22 @@ export default function About() {
               <p className="flex items-center gap-3"><Mail size={18} className="text-blue-300" />{data.contact_email}</p>
               <p className="flex items-center gap-3"><MapPin size={18} className="text-blue-300" />{data.ground}</p>
             </div>
+            {(data.instagram_url || data.facebook_url) && (
+              <div className="mt-5 flex items-center gap-3">
+                {data.instagram_url && (
+                  <a href={data.instagram_url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                    <Instagram size={16} /> Instagram
+                  </a>
+                )}
+                {data.facebook_url && (
+                  <a href={data.facebook_url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                    <Facebook size={16} /> Facebook
+                  </a>
+                )}
+              </div>
+            )}
             <div className="mt-6 flex gap-3">
               <Link to="/register" className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-5 py-2.5 rounded-lg transition-colors text-sm">Join the Club</Link>
               <Link to="/login" className="border border-blue-400 hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg transition-colors text-sm">Sign In</Link>

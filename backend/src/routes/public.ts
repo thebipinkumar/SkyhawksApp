@@ -51,6 +51,8 @@ router.get('/about', async (_req: Request, res: Response) => {
     contact_email: settings?.contact_email || 'info@skyhawks.com',
     ground:        settings?.ground        || '',
     logo_url:      settings?.logo_url      || null,
+    instagram_url: settings?.instagram_url || null,
+    facebook_url:  settings?.facebook_url  || null,
     achievements:  JSON.parse((settings?.achievements as string) || '[]'),
     stats: {
       members: Number((memberRow as any).n),

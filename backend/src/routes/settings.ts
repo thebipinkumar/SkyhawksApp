@@ -17,13 +17,13 @@ router.get('/', authenticate, authorize('admin'), async (_req: AuthRequest, res:
 });
 
 router.put('/', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
-  const { club_name, tagline, founded, description, contact_email, ground, achievements } = req.body;
+  const { club_name, tagline, founded, description, contact_email, ground, achievements, instagram_url, facebook_url } = req.body;
   if (!club_name?.trim()) { res.status(400).json({ error: 'Club name is required' }); return; }
   const achievementsJson = JSON.stringify(Array.isArray(achievements) ? achievements.filter(Boolean) : []);
   const db = getDb();
   await db.execute({
-    sql: `UPDATE club_settings SET club_name=?,tagline=?,founded=?,description=?,contact_email=?,ground=?,achievements=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`,
-    args: [club_name.trim(), tagline || '', founded || '', description || '', contact_email || '', ground || '', achievementsJson],
+    sql: `UPDATE club_settings SET club_name=?,tagline=?,founded=?,description=?,contact_email=?,ground=?,achievements=?,instagram_url=?,facebook_url=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`,
+    args: [club_name.trim(), tagline || '', founded || '', description || '', contact_email || '', ground || '', achievementsJson, instagram_url || null, facebook_url || null],
   });
   const settings = row((await db.execute('SELECT * FROM club_settings WHERE id = 1')).rows[0]);
   if (settings) settings.achievements = JSON.parse(settings.achievements || '[]');

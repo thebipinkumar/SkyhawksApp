@@ -2,7 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { Match, AvailabilityRecord, AvailabilityStatus } from '../types';
-import { Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, HelpCircle, MinusCircle } from 'lucide-react';
+import { Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, HelpCircle, MinusCircle, ExternalLink } from 'lucide-react';
 
 const MATCH_TYPES = ['T20', 'T25', 'T30'];
 const STATUS_OPTIONS = ['scheduled', 'completed', 'cancelled'];
@@ -12,7 +12,7 @@ const ATTIRE_OPTIONS = ['White', 'Colored'];
 const emptyForm = {
   title: '', opponent: '', venue: '', match_date: '', match_time: '',
   match_type: 'T20', status: 'scheduled', result: '', notes: '',
-  ball_type: 'White', attire: 'Colored', match_fee: ''
+  ball_type: 'White', attire: 'Colored', match_fee: '', scorecard_url: ''
 };
 
 const availabilityConfig: Record<AvailabilityStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -78,7 +78,8 @@ export default function Matches() {
   const openEdit = (m: Match) => {
     setForm({ title: m.title, opponent: m.opponent, venue: m.venue, match_date: m.match_date,
       match_time: m.match_time, match_type: m.match_type, status: m.status, result: m.result || '', notes: m.notes || '',
-      ball_type: m.ball_type || 'White', attire: m.attire || 'Colored', match_fee: m.match_fee != null ? String(m.match_fee) : '' });
+      ball_type: m.ball_type || 'White', attire: m.attire || 'Colored', match_fee: m.match_fee != null ? String(m.match_fee) : '',
+      scorecard_url: m.scorecard_url || '' });
     setEditMatch(m); setShowForm(true); setError('');
   };
 
@@ -188,6 +189,12 @@ export default function Matches() {
                     </div>
                     {match.result && <p className="mt-2 text-sm text-green-700 font-medium">Result: {match.result}</p>}
                     {match.notes && <p className="mt-1 text-sm text-gray-500 italic">{match.notes}</p>}
+                    {match.scorecard_url && (
+                      <a href={match.scorecard_url} target="_blank" rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        <ExternalLink size={14} /> View Scorecard
+                      </a>
+                    )}
                   </div>
                   {canManage && (
                     <div className="flex gap-2 flex-shrink-0">
@@ -346,6 +353,12 @@ export default function Matches() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                 <textarea className="input-field" rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} placeholder="Additional notes..." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Scorecard URL <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input type="url" className="input-field" value={form.scorecard_url}
+                  onChange={e => setForm(f => ({...f, scorecard_url: e.target.value}))}
+                  placeholder="https://cricclubs.com/..." />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>

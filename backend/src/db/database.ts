@@ -168,6 +168,13 @@ export async function initDb(): Promise<void> {
   ];
   for (const sql of jerseyMigrations) { try { await db.execute(sql); } catch { /* exists */ } }
 
+  // Migrate: social media links on club_settings
+  try { await db.execute(`ALTER TABLE club_settings ADD COLUMN instagram_url TEXT`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE club_settings ADD COLUMN facebook_url TEXT`); } catch { /* exists */ }
+
+  // Migrate: scorecard link on matches
+  try { await db.execute(`ALTER TABLE matches ADD COLUMN scorecard_url TEXT`); } catch { /* exists */ }
+
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {
     await db.execute('SELECT ball_type FROM matches LIMIT 1');

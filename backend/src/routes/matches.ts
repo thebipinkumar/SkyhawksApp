@@ -18,19 +18,19 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { title, opponent, venue, match_date, match_time, match_type, notes, ball_type, attire, match_fee } = req.body;
+  const { title, opponent, venue, match_date, match_time, match_type, notes, ball_type, attire, match_fee, scorecard_url } = req.body;
   if (!title || !opponent || !venue || !match_date || !match_time) { res.status(400).json({ error: 'Title, opponent, venue, date and time are required' }); return; }
   const db = getDb();
-  const result = await db.execute({ sql: `INSERT INTO matches (title,opponent,venue,match_date,match_time,match_type,notes,ball_type,attire,match_fee,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`, args: [title, opponent, venue, match_date, match_time, match_type || 'T20', notes || null, ball_type || 'White', attire || 'Colored', match_fee ?? null, req.user!.id] });
+  const result = await db.execute({ sql: `INSERT INTO matches (title,opponent,venue,match_date,match_time,match_type,notes,ball_type,attire,match_fee,scorecard_url,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, args: [title, opponent, venue, match_date, match_time, match_type || 'T20', notes || null, ball_type || 'White', attire || 'Colored', match_fee ?? null, scorecard_url || null, req.user!.id] });
   const match = row((await db.execute({ sql: 'SELECT * FROM matches WHERE id = ?', args: [Number(result.lastInsertRowid)] })).rows[0]);
   res.status(201).json(match);
 });
 
 router.put('/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { title, opponent, venue, match_date, match_time, match_type, status, result: matchResult, notes, ball_type, attire, match_fee } = req.body;
+  const { title, opponent, venue, match_date, match_time, match_type, status, result: matchResult, notes, ball_type, attire, match_fee, scorecard_url } = req.body;
   const db = getDb();
   if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
-  await db.execute({ sql: `UPDATE matches SET title=?,opponent=?,venue=?,match_date=?,match_time=?,match_type=?,status=?,result=?,notes=?,ball_type=?,attire=?,match_fee=? WHERE id=?`, args: [title, opponent, venue, match_date, match_time, match_type, status, matchResult || null, notes || null, ball_type || 'White', attire || 'Colored', match_fee ?? null, req.params.id] });
+  await db.execute({ sql: `UPDATE matches SET title=?,opponent=?,venue=?,match_date=?,match_time=?,match_type=?,status=?,result=?,notes=?,ball_type=?,attire=?,match_fee=?,scorecard_url=? WHERE id=?`, args: [title, opponent, venue, match_date, match_time, match_type, status, matchResult || null, notes || null, ball_type || 'White', attire || 'Colored', match_fee ?? null, scorecard_url || null, req.params.id] });
   res.json(row((await db.execute({ sql: 'SELECT * FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]));
 });
 

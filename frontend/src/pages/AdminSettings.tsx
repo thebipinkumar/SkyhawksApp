@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
 import api from '../utils/api';
 import { useClub } from '../contexts/ClubContext';
-import { Settings, Upload, Trash2, Plus, X, Save, Image, GalleryHorizontal, Edit2, Check } from 'lucide-react';
+import { Settings, Upload, Trash2, Plus, X, Save, Image, GalleryHorizontal, Edit2, Check, Instagram, Facebook } from 'lucide-react';
 
 interface BannerImage { id: number; image_url: string; caption: string | null; sort_order: number; }
 
@@ -12,6 +12,7 @@ export default function AdminSettings() {
   const [form, setForm] = useState({
     club_name: '', tagline: '', founded: '', description: '',
     contact_email: '', ground: '', achievements: [''] as string[],
+    instagram_url: '', facebook_url: '',
   });
   const [logoUrl, setLogoUrl]     = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
@@ -37,6 +38,8 @@ export default function AdminSettings() {
         contact_email: data.contact_email || '',
         ground:        data.ground        || '',
         achievements:  data.achievements?.length ? data.achievements : [''],
+        instagram_url: data.instagram_url || '',
+        facebook_url:  data.facebook_url  || '',
       });
       setLogoUrl(data.logo_url || null);
     });
@@ -270,6 +273,26 @@ export default function AdminSettings() {
               onChange={e => setForm(f => ({ ...f, ground: e.target.value }))} />
           </div>
         </div>
+        {/* Social media */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+              <Instagram size={14} className="text-pink-500" /> Instagram URL
+            </label>
+            <input className="input-field" value={form.instagram_url}
+              placeholder="https://instagram.com/yourclub"
+              onChange={e => setForm(f => ({ ...f, instagram_url: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+              <Facebook size={14} className="text-blue-600" /> Facebook URL
+            </label>
+            <input className="input-field" value={form.facebook_url}
+              placeholder="https://facebook.com/yourclub"
+              onChange={e => setForm(f => ({ ...f, facebook_url: e.target.value }))} />
+          </div>
+        </div>
+
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700">Achievements</label>
