@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { User, Role, PendingUser } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle, KeyRound, X } from 'lucide-react';
+import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle, KeyRound, X, UserCog, CalendarClock } from 'lucide-react';
 
 const ROLES: Role[] = ['player', 'manager', 'selector', 'admin'];
 
@@ -13,6 +14,7 @@ const roleBadge: Record<Role, string> = {
 
 export default function UsersPage() {
   const { user: me } = useAuth();
+  const navigate = useNavigate();
   const myRoles: string[] = me?.roles ?? (me?.role ? [me.role] : []);
   const isAdmin   = myRoles.includes('admin');
   const canManage = myRoles.includes('admin') || myRoles.includes('manager');
@@ -27,6 +29,9 @@ export default function UsersPage() {
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [resetPw, setResetPw] = useState('');
   const [resetMsg, setResetMsg] = useState('');
+  const [expiryTarget, setExpiryTarget] = useState<User | null>(null);
+  const [expiryDate, setExpiryDate] = useState('');
+  const [expiryMsg, setExpiryMsg] = useState('');
 
   const loadMembers = () => api.get('/users').then(({ data }) => { setUsers(data); setLoading(false); });
   const loadPending = () => api.get('/users/pending').then(({ data }) => setPending(data));
@@ -92,6 +97,20 @@ export default function UsersPage() {
       setResetMsg(err.response?.data?.error || 'Failed to reset password');
     }
   };
+
+  const submitExpiry = async () => {
+    if (!expiryTarget || !expiryDate) { setExpiryMsg('Please select a date'); return; }
+    try {
+      await api.patch(`/users/${expiryTarget.id}/membership-expiry`, { membership_end: expiryDate });
+      setExpiryMsg('Expiry date updated!');
+      await loadMembers();
+      setTimeout(() => { setExpiryTarget(null); setExpiryDate(''); setExpiryMsg(''); }, 1500);
+    } catch (err: any) {
+      setExpiryMsg(err.response?.data?.error || 'Failed to update expiry');
+    }
+  };
+
+  const memberExpired = (u: User) => !!u.membership_end && new Date(u.membership_end) < new Date();
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -207,6 +226,12 @@ export default function UsersPage() {
                           <span className="flex items-center gap-1"><Mail size={11} />{u.email}</span>
                           {u.phone && <span className="flex items-center gap-1"><Phone size={11} />{u.phone}</span>}
                           {u.created_at && <span className="flex items-center gap-1"><Calendar size={11} />Joined {fmt(u.created_at)}</span>}
+                          {u.membership_end && (
+                            <span className={`flex items-center gap-1 ${memberExpired(u) ? 'text-red-600 font-semibold' : 'text-green-700'}`}>
+                              <CalendarClock size={11} />
+                              {memberExpired(u) ? 'Expired ' : 'Expires '}{fmt(u.membership_end)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -231,6 +256,14 @@ export default function UsersPage() {
                             );
                           })}
                         </div>
+                        <button onClick={() => navigate(`/admin/members/${u.id}`)}
+                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Edit profile">
+                          <UserCog size={16} />
+                        </button>
+                        <button onClick={() => { setExpiryTarget(u); setExpiryDate(u.membership_end || ''); setExpiryMsg(''); }}
+                          className={`p-2 transition-colors ${memberExpired(u) ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-orange-500'}`} title="Edit membership expiry">
+                          <CalendarClock size={16} />
+                        </button>
                         <button onClick={() => { setResetTarget(u); setResetPw(''); setResetMsg(''); }}
                           className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Reset password">
                           <KeyRound size={16} />
@@ -248,6 +281,28 @@ export default function UsersPage() {
           )}
         </>
       )}
+      {/* Edit Membership Expiry Modal */}
+      {expiryTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2"><CalendarClock size={18} className="text-orange-500" /> Membership Expiry</h3>
+              <button onClick={() => { setExpiryTarget(null); setExpiryMsg(''); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Update membership expiry for <strong>{expiryTarget.name}</strong>.</p>
+            {expiryMsg && (
+              <div className={`rounded-lg p-3 mb-3 text-sm ${expiryMsg.includes('updated') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{expiryMsg}</div>
+            )}
+            <input type="date" className="input-field mb-4" value={expiryDate}
+              onChange={e => setExpiryDate(e.target.value)} autoFocus />
+            <div className="flex gap-3">
+              <button onClick={() => { setExpiryTarget(null); setExpiryMsg(''); }} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={submitExpiry} className="btn-primary flex-1">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reset Password Modal */}
       {resetTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

@@ -168,6 +168,10 @@ export async function initDb(): Promise<void> {
   ];
   for (const sql of jerseyMigrations) { try { await db.execute(sql); } catch { /* exists */ } }
 
+  // Migrate: membership dates on users
+  try { await db.execute(`ALTER TABLE users ADD COLUMN membership_start TEXT`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE users ADD COLUMN membership_end TEXT`); } catch { /* exists */ }
+
   // Migrate: social media links on club_settings
   try { await db.execute(`ALTER TABLE club_settings ADD COLUMN instagram_url TEXT`); } catch { /* exists */ }
   try { await db.execute(`ALTER TABLE club_settings ADD COLUMN facebook_url TEXT`); } catch { /* exists */ }

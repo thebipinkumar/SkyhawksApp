@@ -162,9 +162,19 @@ export default function Profile() {
             )}
           </div>
 
-          <div className="w-full border-t pt-3 text-left space-y-1">
-            <p className="text-xs text-gray-400">Member since</p>
-            <p className="text-sm text-gray-700">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }) : '—'}</p>
+          <div className="w-full border-t pt-3 text-left space-y-2">
+            <div>
+              <p className="text-xs text-gray-400">Member since</p>
+              <p className="text-sm text-gray-700">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }) : '—'}</p>
+            </div>
+            {(profile as any)?.membership_end && (
+              <div>
+                <p className="text-xs text-gray-400">Membership expires</p>
+                <p className={`text-sm font-medium ${new Date((profile as any).membership_end) < new Date() ? 'text-red-600' : 'text-green-700'}`}>
+                  {new Date((profile as any).membership_end).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

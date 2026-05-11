@@ -52,7 +52,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   const db = getDb();
-  const user = row((await db.execute({ sql: 'SELECT id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]);
+  const user = row((await db.execute({ sql: 'SELECT id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at, membership_start, membership_end FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]);
   const roleRows = await db.execute({ sql: 'SELECT role FROM user_roles WHERE user_id = ?', args: [req.user!.id] });
   const roles = rows(roleRows.rows).map(r => r.role as string);
   res.json({ ...user, roles: roles.length > 0 ? roles : [user.role] });

@@ -18,6 +18,8 @@ import UsersPage from './pages/Users';
 import Profile from './pages/Profile';
 import AdminSettings from './pages/AdminSettings';
 import JerseyList from './pages/JerseyList';
+import MembershipExpired from './pages/MembershipExpired';
+import AdminMemberProfile from './pages/AdminMemberProfile';
 import About from './pages/public/About';
 import PublicMatches from './pages/public/PublicMatches';
 import PublicMembers from './pages/public/PublicMembers';
@@ -28,6 +30,11 @@ function ProtectedRoute({ children, roles }: { children: JSX.Element; roles?: st
   if (!user) return <Navigate to="/login" replace />;
   const userRoles: string[] = user.roles ?? [user.role];
   if (roles && !roles.some(r => userRoles.includes(r))) return <Navigate to="/dashboard" replace />;
+  // Block non-admin users with expired membership
+  const isAdmin = userRoles.includes('admin');
+  if (!isAdmin && user.membership_end && new Date(user.membership_end) < new Date()) {
+    return <Navigate to="/membership-expired" replace />;
+  }
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -71,8 +78,10 @@ function AppRoutes() {
       <Route path="/team-selection" element={<ProtectedRoute roles={['selector','admin']}><TeamSelection /></ProtectedRoute>} />
       <Route path="/budget"         element={<ProtectedRoute roles={['manager','admin']}><Budget /></ProtectedRoute>} />
       <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
-      <Route path="/admin/settings" element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
-      <Route path="/jerseys"        element={<ProtectedRoute roles={['admin','manager','selector']}><JerseyList /></ProtectedRoute>} />
+      <Route path="/admin/settings"        element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
+      <Route path="/jerseys"               element={<ProtectedRoute roles={['admin','manager','selector']}><JerseyList /></ProtectedRoute>} />
+      <Route path="/admin/members/:id"     element={<ProtectedRoute roles={['admin']}><AdminMemberProfile /></ProtectedRoute>} />
+      <Route path="/membership-expired"    element={<MembershipExpired />} />
 
       {/* Public */}
       <Route path="/public/about"   element={<PublicPageRoute><About /></PublicPageRoute>} />

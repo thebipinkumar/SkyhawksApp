@@ -15,6 +15,8 @@ export interface User {
   batting_style?: string;
   bowling_style?: string;
   created_at?: string;
+  membership_start?: string | null;
+  membership_end?: string | null;
 }
 
 export interface PendingUser {
