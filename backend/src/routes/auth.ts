@@ -47,7 +47,7 @@ router.post('/login', async (req: Request, res: Response) => {
   const roles = userRoles.length > 0 ? userRoles : [user.role];
 
   const token = signToken({ id: user.id, email: user.email, roles, name: user.name });
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, roles } });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, roles, membership_end: user.membership_end ?? null } });
 });
 
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
