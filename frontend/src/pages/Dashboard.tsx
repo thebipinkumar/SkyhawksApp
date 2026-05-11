@@ -12,6 +12,8 @@ export default function Dashboard() {
   const [budget, setBudget] = useState<BudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const userRoles: string[] = (user as any)?.roles ?? (user?.role ? [user.role] : []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -21,12 +23,12 @@ export default function Dashboard() {
           .slice(0, 3);
         setUpcomingMatches(upcoming);
 
-        if (['admin', 'manager', 'selector'].includes(user?.role || '')) {
+        if (userRoles.some(r => ['admin', 'manager', 'selector'].includes(r))) {
           const usersRes = await api.get('/users');
           setTotalMembers(usersRes.data.length);
         }
 
-        if (['admin', 'manager'].includes(user?.role || '')) {
+        if (userRoles.some(r => ['admin', 'manager'].includes(r))) {
           const budgetRes = await api.get('/budget');
           setBudget(budgetRes.data.summary);
         }
@@ -61,7 +63,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {['admin', 'manager', 'selector'].includes(user?.role || '') && (
+        {userRoles.some(r => ['admin', 'manager', 'selector'].includes(r)) && (
           <div className="card flex items-center gap-4">
             <div className="p-3 bg-purple-100 rounded-xl"><Users size={24} className="text-purple-700" /></div>
             <div>
@@ -71,7 +73,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {['admin', 'manager'].includes(user?.role || '') && budget && (
+        {userRoles.some(r => ['admin', 'manager'].includes(r)) && budget && (
           <>
             <div className="card flex items-center gap-4">
               <div className="p-3 bg-green-100 rounded-xl"><DollarSign size={24} className="text-green-700" /></div>
@@ -150,13 +152,13 @@ export default function Dashboard() {
                 <Megaphone size={18} className="text-green-600" />
                 <span className="text-sm font-medium">Team Announcements</span>
               </Link>
-              {['selector', 'admin'].includes(user?.role || '') && (
+              {userRoles.some(r => ['selector', 'admin'].includes(r)) && (
                 <Link to="/team-selection" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <Users size={18} className="text-purple-600" />
                   <span className="text-sm font-medium">Select Team</span>
                 </Link>
               )}
-              {['manager', 'admin'].includes(user?.role || '') && (
+              {userRoles.some(r => ['manager', 'admin'].includes(r)) && (
                 <Link to="/budget" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <DollarSign size={18} className="text-green-600" />
                   <span className="text-sm font-medium">Manage Budget</span>
@@ -168,7 +170,14 @@ export default function Dashboard() {
           <div className="card bg-blue-900 text-white">
             <Trophy size={28} className="text-yellow-400 mb-2" />
             <h3 className="font-bold text-lg">Skyhawks Cricket Club</h3>
-            <p className="text-blue-200 text-sm mt-1">Your role: <span className="font-semibold text-white capitalize">{user?.role}</span></p>
+            {user?.membership_end && (
+              <p className="text-blue-200 text-sm mt-1">
+                Membership expires:{' '}
+                <span className={`font-semibold ${new Date(user.membership_end) < new Date() ? 'text-red-400' : 'text-white'}`}>
+                  {new Date(user.membership_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </p>
+            )}
             <p className="text-blue-300 text-xs mt-3">{user?.email}</p>
           </div>
         </div>
