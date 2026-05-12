@@ -452,7 +452,7 @@ export default function Budget() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (S$) *</label>
                 <input type="number" min="0.01" step="0.01" className="input-field" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} required />
               </div>
               <div>
