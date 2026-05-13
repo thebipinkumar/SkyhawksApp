@@ -70,7 +70,7 @@ export default function JerseyList() {
     doc.text(clubName, pageW / 2, y, { align: 'center' });
     y += 8;
     doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-    doc.text(`Jersey List — ${attire === 'whites' ? 'Whites' : 'Colored'}`, pageW / 2, y, { align: 'center' });
+    doc.text(`Merchandise — ${attire === 'whites' ? 'Whites' : 'Colored'}`, pageW / 2, y, { align: 'center' });
     y += 6;
     doc.setFontSize(9); doc.setTextColor(120);
     doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}`, pageW / 2, y, { align: 'center' });
@@ -106,7 +106,7 @@ export default function JerseyList() {
       },
     });
 
-    doc.save(`jersey-list-${attire}-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`merchandise-${attire}-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const displayed = players;
@@ -117,7 +117,7 @@ export default function JerseyList() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Shirt size={26} className="text-blue-700" /> Jersey List
+          <Shirt size={26} className="text-blue-700" /> Merchandise
         </h1>
         <button onClick={exportPdf} className="btn-primary flex items-center gap-2">
           <Download size={16} /> Export PDF
@@ -143,7 +143,8 @@ export default function JerseyList() {
         <div className="space-y-2">{[1,2,3,4,5].map(i => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}</div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-blue-900 text-white">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">#</th>
@@ -198,6 +199,7 @@ export default function JerseyList() {
               })}
             </tbody>
           </table>
+          </div>
           {displayed.length === 0 && (
             <div className="text-center py-16 text-gray-400">
               <Shirt size={40} className="mx-auto mb-3 opacity-30" />
