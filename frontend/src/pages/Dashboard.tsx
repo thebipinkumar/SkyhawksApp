@@ -161,7 +161,7 @@ export default function Dashboard() {
               {userRoles.some(r => ['manager', 'admin'].includes(r)) && (
                 <Link to="/budget" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <DollarSign size={18} className="text-green-600" />
-                  <span className="text-sm font-medium">Manage Budget</span>
+                  <span className="text-sm font-medium">Manage Finance</span>
                 </Link>
               )}
             </div>

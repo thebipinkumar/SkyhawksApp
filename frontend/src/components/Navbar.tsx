@@ -8,7 +8,7 @@ const navLinks = [
   { to: '/matches',        label: 'Matches',        roles: ['player', 'manager', 'selector', 'admin'] },
   { to: '/team-selection', label: 'Team Selection',  roles: ['selector', 'admin'] },
   { to: '/announcements',  label: 'Announcements',   roles: ['player', 'manager', 'selector', 'admin'] },
-  { to: '/budget',         label: 'Budget',          roles: ['manager', 'admin'] },
+  { to: '/budget',         label: 'Finance',         roles: ['manager', 'admin'] },
   { to: '/users',          label: 'Members',         roles: ['admin', 'manager', 'selector'] },
   { to: '/jerseys',        label: 'Merchandise',     roles: ['admin', 'manager', 'selector'] },
   { to: '/admin/settings', label: 'Settings',        roles: ['admin'] },

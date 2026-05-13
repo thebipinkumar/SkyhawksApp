@@ -130,7 +130,7 @@ export default function Budget() {
       doc.text(clubName, pageW / 2, y, { align: 'center' });
       y += 8;
       doc.setFontSize(13); doc.setFont('helvetica', 'normal');
-      doc.text('Budget Balance Sheet', pageW / 2, y, { align: 'center' });
+      doc.text('Finance Balance Sheet', pageW / 2, y, { align: 'center' });
       y += 6;
       doc.setFontSize(9); doc.setTextColor(120);
       doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, pageW / 2, y, { align: 'center' });
@@ -242,17 +242,17 @@ export default function Budget() {
         doc.text(`Page ${i} of ${pageCount}`, pageW - 14, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
       }
 
-      doc.save(`${clubName.replace(/\s+/g, '_')}_Budget_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`${clubName.replace(/\s+/g, '_')}_Finance_${new Date().toISOString().split('T')[0]}.pdf`);
     } finally { setGeneratingPdf(false); }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <DollarSign size={26} className="text-green-600" /> Team Budget
+          <DollarSign size={26} className="text-green-600" /> Finance
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={generatePDF} disabled={generatingPdf || loading}
             className="btn-secondary flex items-center gap-2">
             <FileText size={16} /> {generatingPdf ? 'Generating…' : 'Download PDF'}
@@ -361,7 +361,8 @@ export default function Budget() {
       ) : (
         <>
           <div className="card overflow-hidden p-0">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-gray-600">Date</th>
@@ -396,11 +397,12 @@ export default function Budget() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-4 text-sm text-gray-600">
               <span>Page {page} of {totalPages}</span>
               <div className="flex gap-2">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
@@ -430,7 +432,7 @@ export default function Budget() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-lg font-bold">{editEntry ? 'Edit Entry' : 'Add Budget Entry'}</h2>
+              <h2 className="text-lg font-bold">{editEntry ? 'Edit Entry' : 'Add Finance Entry'}</h2>
               <button onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
