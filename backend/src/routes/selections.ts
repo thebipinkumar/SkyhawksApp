@@ -21,7 +21,10 @@ router.post('/matches/:matchId/select', authenticate, authorize('selector', 'adm
 
 router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'admin'), async (req: AuthRequest, res: Response) => {
   const db = getDb();
-  const match = row((await db.execute({ sql: 'SELECT * FROM matches WHERE id = ?', args: [req.params.matchId] })).rows[0]);
+  const match = row((await db.execute({
+    sql: `SELECT m.*, t.name as tournament_name FROM matches m LEFT JOIN tournaments t ON m.tournament_id = t.id WHERE m.id = ?`,
+    args: [req.params.matchId],
+  })).rows[0]);
   if (!match) { res.status(404).json({ error: 'Match not found' }); return; }
 
   const selections = rows((await db.execute({ sql: `SELECT ts.*, u.name as player_name, u.email as player_email FROM team_selections ts JOIN users u ON ts.player_id = u.id WHERE ts.match_id = ? ORDER BY ts.is_captain DESC, ts.is_vice_captain DESC, u.name`, args: [req.params.matchId] })).rows);
@@ -40,6 +43,7 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
     ballType:    match.ball_type,
     attire:      match.attire,
     matchFee:    match.match_fee,
+    tournament:  match.tournament_name || undefined,
     squad: selections.map((s: any) => ({
       name:          s.player_name,
       role:          s.role_in_match,
@@ -49,6 +53,7 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
     announcedBy: 'Selectors Committee',
   });
 
+  await db.execute({ sql: 'UPDATE matches SET is_announced = 1 WHERE id = ?', args: [req.params.matchId] });
   await db.execute({ sql: 'INSERT INTO announcements (match_id, message, sent_by) VALUES (?,?,?)', args: [req.params.matchId, `Team announced for ${match.title} vs ${match.opponent} on ${match.match_date}`, req.user!.id] });
   res.json({ message: `Announcement sent to ${sent} members`, recipients: sent, ...(error && { emailWarning: error }) });
 });

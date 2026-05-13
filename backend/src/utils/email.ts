@@ -13,6 +13,7 @@ export interface AnnouncementEmailData {
   ballType?: string;
   attire?: string;
   matchFee?: number | null;
+  tournament?: string;
   squad: { name: string; role: string; isCaptain: boolean; isViceCaptain: boolean }[];
   announcedBy: string;
 }
@@ -72,6 +73,10 @@ function buildHtml(data: AnnouncementEmailData): string {
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">🏏</td>
                 <td style="padding:6px 0;font-size:14px;color:#334155;">${data.matchType}</td>
               </tr>
+              ${data.tournament ? `<tr>
+                <td style="padding:6px 0;color:#64748b;font-size:14px;">🏆</td>
+                <td style="padding:6px 0;font-size:14px;color:#334155;font-weight:600;">${data.tournament}</td>
+              </tr>` : ''}
             </table>
             ${extraBadges ? `<div style="margin-top:12px;">${extraBadges}</div>` : ''}
           </td>

@@ -141,6 +141,18 @@ export async function initDb(): Promise<void> {
       PRIMARY KEY (user_id, role),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS tournaments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      format TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      description TEXT,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
   `);
 
   // Migrate: add status column to users for existing databases
@@ -178,6 +190,10 @@ export async function initDb(): Promise<void> {
 
   // Migrate: scorecard link on matches
   try { await db.execute(`ALTER TABLE matches ADD COLUMN scorecard_url TEXT`); } catch { /* exists */ }
+
+  // Migrate: tournament link + announcement flag on matches
+  try { await db.execute(`ALTER TABLE matches ADD COLUMN tournament_id INTEGER REFERENCES tournaments(id)`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE matches ADD COLUMN is_announced INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
 
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {

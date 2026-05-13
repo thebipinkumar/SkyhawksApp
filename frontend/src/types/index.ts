@@ -1,4 +1,16 @@
 export type Role = 'player' | 'manager' | 'selector' | 'admin';
+
+export interface Tournament {
+  id: number;
+  name: string;
+  format?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  description?: string | null;
+  created_by: number;
+  created_by_name?: string;
+  created_at?: string;
+}
 export type UserStatus = 'active' | 'pending' | 'rejected';
 export type AvailabilityStatus = 'available' | 'not_available' | 'maybe' | 'not_responded';
 
@@ -50,6 +62,9 @@ export interface Match {
   attire?: 'White' | 'Colored';
   match_fee?: number | null;
   scorecard_url?: string | null;
+  tournament_id?: number | null;
+  tournament_name?: string | null;
+  is_announced?: number;
   created_by: number;
   created_by_name: string;
   created_at: string;
@@ -66,6 +81,7 @@ export interface TeamSelection {
   is_captain: number;
   is_vice_captain: number;
   selected_by: number;
+  player_avatar?: string | null;
 }
 
 export interface BudgetEntry {

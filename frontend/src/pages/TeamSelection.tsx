@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { Match, TeamSelection, AvailabilityStatus } from '../types';
-import { Users, Send, CheckSquare, Square, Star } from 'lucide-react';
+import { Users, Send, CheckSquare, Square, Star, Trophy } from 'lucide-react';
 
 interface AvailablePlayer {
   player_id: number;
@@ -147,6 +147,11 @@ export default function TeamSelectionPage() {
                 <button key={m.id} onClick={() => loadMatchTeam(m)}
                   className={`w-full text-left p-3 rounded-xl transition-colors border ${selectedMatch?.id === m.id ? 'border-purple-500 bg-purple-50' : 'border-gray-100 hover:bg-gray-50'}`}>
                   <p className="font-semibold text-sm text-gray-900">{m.title}</p>
+                  {m.tournament_name && (
+                    <p className="text-xs text-yellow-700 flex items-center gap-1 mt-0.5">
+                      <Trophy size={10} /> {m.tournament_name}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500">vs {m.opponent}</p>
                   <p className="text-xs text-gray-400">{m.match_date} • {m.match_type}</p>
                 </button>
@@ -167,6 +172,11 @@ export default function TeamSelectionPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="font-bold text-gray-900">{selectedMatch.title}</h2>
+                  {selectedMatch.tournament_name && (
+                    <p className="text-xs text-yellow-700 flex items-center gap-1 mt-0.5">
+                      <Trophy size={11} /> {selectedMatch.tournament_name}
+                    </p>
+                  )}
                   <p className="text-sm text-gray-500">vs {selectedMatch.opponent} • {selectedMatch.match_date}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
