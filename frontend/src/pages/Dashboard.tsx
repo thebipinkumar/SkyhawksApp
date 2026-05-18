@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { Match, BudgetSummary, MyMembershipStatus, PendingAvailabilityMatch } from '../types';
-import { Calendar, Users, DollarSign, Megaphone, Clock, Trophy, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Calendar, Users, DollarSign, Megaphone, Clock, Trophy, AlertTriangle, CheckCircle, UserCircle } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -63,9 +63,23 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
-        <p className="text-gray-500 mt-1">Here's what's happening at Skyhawks Cricket Club</p>
+      <div className="mb-8 flex items-center gap-4">
+        {/* Profile avatar */}
+        {user?.avatar_url ? (
+          <img
+            src={user.avatar_url}
+            alt={user.name}
+            className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md shrink-0"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-2xl shadow-md shrink-0 select-none">
+            {user?.name?.charAt(0)?.toUpperCase() ?? <UserCircle size={32} />}
+          </div>
+        )}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
+          <p className="text-gray-500 mt-0.5">Here's what's happening at Skyhawks Cricket Club</p>
+        </div>
       </div>
 
       {/* ── Membership Fee Pending Alert ── */}

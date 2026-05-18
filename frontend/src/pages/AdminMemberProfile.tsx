@@ -1,8 +1,8 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { User } from '../types';
-import { ArrowLeft, Save, Shield, UserCircle } from 'lucide-react';
+import { ArrowLeft, Save, Shield, UserCircle, Camera, Trash2, Upload } from 'lucide-react';
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
@@ -33,9 +33,14 @@ export default function AdminMemberProfile() {
     colored_tshirt_size: '', colored_lower_size: '', colored_sleeve: '',
     membership_end: '',
   });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg]       = useState('');
-  const [err, setErr]       = useState('');
+  const [saving, setSaving]           = useState(false);
+  const [msg, setMsg]                 = useState('');
+  const [err, setErr]                 = useState('');
+
+  // Avatar
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarRemoving, setAvatarRemoving]   = useState(false);
+  const fileInputRef                          = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     const { data } = await api.get(`/users/${id}/profile`);
@@ -73,6 +78,38 @@ export default function AdminMemberProfile() {
     } finally { setSaving(false); }
   };
 
+  // ── Avatar upload ─────────────────────────────────────────────────────────
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setErr('Image must be under 5 MB'); return; }
+    setAvatarUploading(true); setMsg(''); setErr('');
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const { data } = await api.post(`/users/${id}/avatar`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setProfile(prev => prev ? { ...prev, avatar_url: data.avatar_url } : prev);
+      setMsg('Profile photo updated!');
+    } catch (e: any) {
+      setErr(e.response?.data?.error || 'Upload failed');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!profile?.avatar_url) return;
+    setAvatarRemoving(true); setMsg(''); setErr('');
+    try {
+      await api.delete(`/users/${id}/avatar`);
+      setProfile(prev => prev ? { ...prev, avatar_url: undefined } : prev);
+      setMsg('Profile photo removed.');
+    } catch (e: any) {
+      setErr(e.response?.data?.error || 'Failed to remove photo');
+    } finally { setAvatarRemoving(false); }
+  };
+
   const userRoles: string[] = (profile as any)?.roles ?? (profile?.role ? [profile.role] : []);
   const expired = isExpired(profile?.membership_end);
 
@@ -90,26 +127,75 @@ export default function AdminMemberProfile() {
       {msg && <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg p-3 mb-4 text-sm">{msg}</div>}
       {err && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-4 text-sm">{err}</div>}
 
-      {/* Member info summary */}
+      {/* Member info summary + avatar management */}
       {profile && (
-        <div className="card mb-6 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl flex-shrink-0 overflow-hidden">
-            {profile.avatar_url
-              ? <img src={profile.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover" />
-              : profile.name.charAt(0).toUpperCase()}
+        <div className="card mb-6 flex items-start gap-5">
+
+          {/* Avatar with upload overlay */}
+          <div className="relative shrink-0 group">
+            {/* Avatar circle */}
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-2xl border-2 border-white shadow-md">
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                : <span className="select-none">{profile.name.charAt(0).toUpperCase()}</span>}
+            </div>
+
+            {/* Camera overlay (shown on hover) */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              title="Upload new photo"
+              className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-wait">
+              {avatarUploading
+                ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <Camera size={20} className="text-white" />}
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
           </div>
-          <div className="flex-1">
+
+          {/* Member details + photo action buttons */}
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-gray-900">{profile.name}</p>
               {userRoles.map(r => <span key={r} className={roleBadge[r] ?? 'badge-player'}>{r}</span>)}
             </div>
             <p className="text-sm text-gray-500 mt-0.5">{profile.email}</p>
-            <div className="flex gap-4 mt-1 text-xs text-gray-400">
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-gray-400">
               <span>Joined: {fmt(profile.created_at)}</span>
               <span>Membership start: {fmt(profile.membership_start)}</span>
               <span className={expired ? 'text-red-600 font-medium' : ''}>
                 Expires: {fmt(profile.membership_end)} {expired && '⚠ Expired'}
               </span>
+            </div>
+
+            {/* Photo action buttons */}
+            <div className="flex gap-2 mt-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
+                <Upload size={13} />
+                {avatarUploading ? 'Uploading…' : profile.avatar_url ? 'Change Photo' : 'Upload Photo'}
+              </button>
+              {profile.avatar_url && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={avatarRemoving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg border border-red-200 transition-colors disabled:opacity-50">
+                  <Trash2 size={13} />
+                  {avatarRemoving ? 'Removing…' : 'Remove Photo'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,8 +1,16 @@
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import { getDb, rows, row } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
 import { sendWelcomeEmail } from '../utils/email.js';
+import { uploadImage, deleteImage } from '../db/cloudinary.js';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_r, f, cb) => (/^image\//.test(f.mimetype) ? cb(null, true) : cb(new Error('Images only'))),
+});
 
 const PROFILE_COLS = `id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at,
   date_of_birth, jersey_number, jersey_label,
@@ -161,6 +169,32 @@ router.post('/:id/reset-password', authenticate, authorize('admin'), async (req:
   const hash = bcrypt.hashSync(password, 10);
   await getDb().execute({ sql: `UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?`, args: [hash, req.params.id] });
   res.json({ message: 'Password updated' });
+});
+
+// Admin upload / replace avatar for any member
+router.post('/:id/avatar', authenticate, authorize('admin'), (req: AuthRequest, res: Response) => {
+  upload.single('avatar')(req as any, res as any, async (err: any) => {
+    if (err) { res.status(400).json({ error: err.message }); return; }
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (!file) { res.status(400).json({ error: 'No file uploaded' }); return; }
+    const db = getDb();
+    // Delete old avatar from Cloudinary if present
+    const current = row((await db.execute({ sql: 'SELECT avatar_public_id FROM users WHERE id = ?', args: [req.params.id] })).rows[0]);
+    if (current?.avatar_public_id) await deleteImage(current.avatar_public_id);
+    // Upload new image
+    const { url, publicId } = await uploadImage(file.buffer, 'skyhawks/avatars', `avatar-${req.params.id}`);
+    await db.execute({ sql: 'UPDATE users SET avatar_url=?, avatar_public_id=? WHERE id=?', args: [url, publicId, req.params.id] });
+    res.json({ avatar_url: url });
+  });
+});
+
+// Admin remove avatar for any member
+router.delete('/:id/avatar', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const current = row((await db.execute({ sql: 'SELECT avatar_public_id FROM users WHERE id = ?', args: [req.params.id] })).rows[0]);
+  if (current?.avatar_public_id) await deleteImage(current.avatar_public_id);
+  await db.execute({ sql: 'UPDATE users SET avatar_url=NULL, avatar_public_id=NULL WHERE id=?', args: [req.params.id] });
+  res.json({ message: 'Avatar removed' });
 });
 
 // Delete user (admin only)
