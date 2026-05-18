@@ -172,6 +172,17 @@ export async function initDb(): Promise<void> {
       FOREIGN KEY (created_by) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS custom_announcements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject TEXT NOT NULL,
+      content TEXT NOT NULL,
+      sent_to TEXT NOT NULL DEFAULT 'all',
+      recipient_count INTEGER NOT NULL DEFAULT 0,
+      sent_by INTEGER NOT NULL,
+      sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sent_by) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS membership_fees (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       year INTEGER UNIQUE NOT NULL,
@@ -232,6 +243,9 @@ export async function initDb(): Promise<void> {
 
   // Migrate: scorecard link on matches
   try { await db.execute(`ALTER TABLE matches ADD COLUMN scorecard_url TEXT`); } catch { /* exists */ }
+
+  // Migrate: broadcast_email opt-out flag on users
+  try { await db.execute(`ALTER TABLE users ADD COLUMN broadcast_email INTEGER NOT NULL DEFAULT 1`); } catch { /* exists */ }
 
   // Migrate: tournament link + announcement flag on matches
   try { await db.execute(`ALTER TABLE matches ADD COLUMN tournament_id INTEGER REFERENCES tournaments(id)`); } catch { /* exists */ }

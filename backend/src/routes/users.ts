@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, rows, row } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
+import { sendWelcomeEmail } from '../utils/email.js';
 
 const PROFILE_COLS = `id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at,
   date_of_birth, jersey_number, jersey_label,
@@ -41,7 +42,7 @@ router.get('/pending', authenticate, authorize('manager', 'admin'), async (_req:
 // Approve a registration — sets status active and assigns 'player' role
 router.patch('/:id/approve', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
   const db = getDb();
-  const user = row((await db.execute({ sql: 'SELECT id, status, role FROM users WHERE id = ?', args: [req.params.id] })).rows[0]);
+  const user = row((await db.execute({ sql: 'SELECT id, name, email, status, role FROM users WHERE id = ?', args: [req.params.id] })).rows[0]);
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
   if (user.status !== 'pending') { res.status(400).json({ error: 'User is not pending approval' }); return; }
   await db.execute({
@@ -50,6 +51,14 @@ router.patch('/:id/approve', authenticate, authorize('manager', 'admin'), async 
   });
   // Add default 'player' role to user_roles
   await db.execute({ sql: 'INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?,?)', args: [req.params.id, 'player'] });
+
+  // Send welcome email (non-blocking — don't let email failure break approval)
+  try {
+    const year = new Date().getFullYear();
+    const feeRow = row((await db.execute({ sql: `SELECT amount, currency FROM membership_fees WHERE year = ?`, args: [year] })).rows[0]);
+    sendWelcomeEmail(user.email, user.name, year, feeRow?.amount ?? null, feeRow?.currency ?? 'SGD').catch(console.error);
+  } catch { /* non-critical */ }
+
   res.json({ message: 'User approved' });
 });
 

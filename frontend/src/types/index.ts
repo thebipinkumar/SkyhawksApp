@@ -104,13 +104,23 @@ export interface BudgetSummary {
 
 export interface Announcement {
   id: number;
-  match_id: number;
-  match_title: string;
-  opponent: string;
-  message: string;
-  sent_by: number;
+  type: 'team_selection' | 'custom';
+  subject: string;
+  content: string;
   sent_by_name: string;
   sent_at: string;
+  recipient_count?: number | null;
+  // team_selection only
+  match_title?: string | null;
+  opponent?: string | null;
+}
+
+export interface BroadcastMember {
+  id: number;
+  name: string;
+  email: string;
+  avatar_url?: string | null;
+  broadcast_email: number; // 1 = enabled, 0 = disabled
 }
 
 export type MembershipPaymentStatus = 'paid' | 'pending' | 'waived';

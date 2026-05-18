@@ -11,7 +11,8 @@ import publicRoutes    from './routes/public.js';
 import settingsRoutes  from './routes/settings.js';
 import jerseyRoutes       from './routes/jerseys.js';
 import tournamentRoutes   from './routes/tournaments.js';
-import membershipRoutes   from './routes/membership.js';
+import membershipRoutes     from './routes/membership.js';
+import announcementRoutes  from './routes/announcements.js';
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -33,7 +34,8 @@ app.use('/api/public',     publicRoutes);
 app.use('/api/settings',   settingsRoutes);
 app.use('/api/jerseys',      jerseyRoutes);
 app.use('/api/tournaments', tournamentRoutes);
-app.use('/api/membership',  membershipRoutes);
+app.use('/api/membership',     membershipRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'Skyhawks Cricket Club API' }));
 

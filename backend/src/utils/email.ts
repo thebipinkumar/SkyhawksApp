@@ -143,6 +143,132 @@ export async function sendAnnouncementEmails(
   }
 }
 
+// ── Custom broadcast email ──────────────────────────────────────────────────
+
+export async function sendCustomAnnouncementEmail(
+  recipients: string[],
+  subject: string,
+  content: string,
+  sentByName: string,
+): Promise<{ sent: number; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — skipping custom announcement email');
+    return { sent: 0, error: 'Email not configured' };
+  }
+  if (recipients.length === 0) return { sent: 0 };
+
+  // Convert plain-text newlines to <br> for HTML
+  const htmlContent = content
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#581c87,#7c3aed);padding:32px 32px 24px;text-align:center;">
+            <p style="margin:0 0 4px;color:#d8b4fe;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Skyhawks Cricket Club</p>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">📢 Team Announcement</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <h2 style="margin:0 0 20px;font-size:18px;color:#1e1b4b;">${subject.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h2>
+            <div style="color:#334155;font-size:15px;line-height:1.7;">${htmlContent}</div>
+            <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0 16px;">
+            <p style="margin:0;font-size:13px;color:#94a3b8;">Sent by <strong style="color:#64748b;">${sentByName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></p>
+            <p style="margin:8px 0 0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const batchSize = 50;
+    let sent = 0;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      await resend.emails.send({ from: FROM, to: batch, subject, html });
+      sent += batch.length;
+    }
+    return { sent };
+  } catch (err: any) {
+    console.error('Resend error (custom broadcast):', err);
+    return { sent: 0, error: err.message };
+  }
+}
+
+// ── Welcome / approval email ────────────────────────────────────────────────
+
+export async function sendWelcomeEmail(
+  to: string,
+  name: string,
+  year: number,
+  feeAmount?: number | null,
+  feeCurrency = 'SGD',
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping welcome email'); return; }
+
+  const feeNote = feeAmount != null
+    ? `<p style="margin:0 0 20px;background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:14px 18px;color:#713f12;font-size:14px;line-height:1.6;">
+        💳 <strong>Membership Fee Reminder:</strong> The annual membership fee for ${year} is
+        <strong>${feeCurrency} ${feeAmount.toFixed(2)}</strong>. Please make your payment as soon as possible
+        to keep your membership active.
+      </p>`
+    : `<p style="margin:0 0 20px;background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:14px 18px;color:#713f12;font-size:14px;line-height:1.6;">
+        💳 <strong>Membership Fee Reminder:</strong> Please check with the club admin regarding the
+        annual membership fee for ${year} and make your payment promptly to keep your membership active.
+      </p>`;
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#065f46,#059669);padding:32px 32px 24px;text-align:center;">
+            <p style="margin:0 0 4px;color:#6ee7b7;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Skyhawks Cricket Club</p>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">🎉 Welcome to the Club!</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:16px;color:#0f172a;">Hi <strong>${name}</strong>,</p>
+            <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.7;">
+              We're thrilled to welcome you as an official member of <strong>Skyhawks Cricket Club</strong>!
+              Your membership has been approved and your profile is now active.
+            </p>
+            <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.7;">
+              You can now log in to the club portal to update your profile, view match schedules,
+              respond to availability, and stay up to date with all club activities.
+            </p>
+            ${feeNote}
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 18px;margin-bottom:24px;">
+              <p style="margin:0 0 8px;font-weight:700;color:#14532d;font-size:14px;">✅ What's next?</p>
+              <ul style="margin:0;padding-left:18px;color:#166534;font-size:14px;line-height:1.8;">
+                <li>Log in and complete your profile (cricket style, jersey preferences)</li>
+                <li>Respond to upcoming match availability</li>
+                <li>Check announcements for the latest club news</li>
+              </ul>
+            </div>
+            <hr style="border:none;border-top:1px solid #f1f5f9;margin:0 0 16px;">
+            <p style="margin:0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  await resend.emails.send({ from: FROM, to, subject: `Welcome to Skyhawks Cricket Club, ${name}!`, html });
+}
+
 export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping reset email'); return; }
   const html = `<!DOCTYPE html>
