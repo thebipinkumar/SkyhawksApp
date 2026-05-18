@@ -113,6 +113,9 @@ export interface Announcement {
   // team_selection only
   match_title?: string | null;
   opponent?: string | null;
+  // custom only
+  image_url?: string | null;
+  image_position?: 'above' | 'below' | null;
 }
 
 export interface BroadcastMember {

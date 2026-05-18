@@ -1,11 +1,20 @@
 import { Router, Response } from 'express';
-import { getDb, rows } from '../db/database.js';
+import multer from 'multer';
+import { getDb, row, rows } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
 import { sendCustomAnnouncementEmail } from '../utils/email.js';
+import { uploadImage, deleteImage } from '../db/cloudinary.js';
 
 const router = Router();
 
-// GET / — merged list: team-selection announcements + custom broadcasts (newest first)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => (/^image\//.test(file.mimetype) ? cb(null, true) : cb(new Error('Images only'))),
+});
+
+// GET / — merged list of team-selection + custom announcements (newest first)
+// Returns image_url and image_position for custom type
 router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   const db = getDb();
   const result = await db.execute(`
@@ -17,7 +26,9 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
            a.sent_at,
            NULL    AS recipient_count,
            m.title AS match_title,
-           m.opponent
+           m.opponent,
+           NULL    AS image_url,
+           NULL    AS image_position
     FROM announcements a
     JOIN users   u ON a.sent_by  = u.id
     JOIN matches m ON a.match_id = m.id
@@ -32,7 +43,9 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
            ca.sent_at,
            ca.recipient_count,
            NULL     AS match_title,
-           NULL     AS opponent
+           NULL     AS opponent,
+           ca.image_url,
+           ca.image_position
     FROM custom_announcements ca
     JOIN users u ON ca.sent_by = u.id
 
@@ -41,7 +54,7 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   res.json(rows(result.rows));
 });
 
-// GET /members — active members with broadcast status (selector/manager/admin — for receiver picker)
+// GET /members — active members list for receiver picker (selector/manager/admin)
 router.get('/members', authenticate, authorize('selector', 'manager', 'admin'), async (_req: AuthRequest, res: Response) => {
   const result = await getDb().execute(
     `SELECT id, name, email, avatar_url, broadcast_email FROM users WHERE status = 'active' ORDER BY name`
@@ -49,63 +62,115 @@ router.get('/members', authenticate, authorize('selector', 'manager', 'admin'), 
   res.json(rows(result.rows));
 });
 
-// POST / — send a custom broadcast announcement (selector/manager/admin)
-router.post('/', authenticate, authorize('selector', 'manager', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { subject, content, recipient_ids } = req.body;
-  // recipient_ids: number[] | 'all'
+// POST / — send custom broadcast, with optional image attachment (selector/manager/admin)
+// Accepts multipart/form-data: subject, content, recipient_ids, image_position?, image (file, optional)
+router.post('/', authenticate, authorize('selector', 'manager', 'admin'), (req: AuthRequest, res: Response) => {
+  upload.single('image')(req as any, res as any, async (err: any) => {
+    if (err) { res.status(400).json({ error: err.message }); return; }
 
-  if (!subject?.trim())  { res.status(400).json({ error: 'Subject is required' }); return; }
-  if (!content?.trim())  { res.status(400).json({ error: 'Content is required' });  return; }
+    const { subject, content, image_position = 'below' } = req.body;
+    const rawRecipients = req.body.recipient_ids;
+    const imageFile = (req as any).file as Express.Multer.File | undefined;
 
-  const db = getDb();
+    if (!subject?.trim()) { res.status(400).json({ error: 'Subject is required' }); return; }
+    if (!content?.trim()) { res.status(400).json({ error: 'Content is required' });  return; }
 
-  // Fetch the sender's name for the email footer
-  const senderRow = (await db.execute({ sql: `SELECT name FROM users WHERE id = ?`, args: [req.user!.id] })).rows[0];
-  const sentByName = senderRow ? String(Object.values(senderRow)[0]) : 'Skyhawks Management';
+    const db = getDb();
 
-  // Build recipient email list (only broadcast_email=1 members)
-  let emailQuery: string;
-  let emailArgs: any[] = [];
+    // Sender name
+    const senderRow = (await db.execute({ sql: `SELECT name FROM users WHERE id = ?`, args: [req.user!.id] })).rows[0];
+    const sentByName = senderRow ? String(Object.values(senderRow)[0]) : 'Skyhawks Management';
 
-  if (!recipient_ids || recipient_ids === 'all' || (Array.isArray(recipient_ids) && recipient_ids.length === 0)) {
-    emailQuery = `SELECT email FROM users WHERE status = 'active' AND broadcast_email = 1`;
-  } else if (Array.isArray(recipient_ids) && recipient_ids.length > 0) {
-    const placeholders = recipient_ids.map(() => '?').join(',');
-    emailQuery = `SELECT email FROM users WHERE id IN (${placeholders}) AND status = 'active' AND broadcast_email = 1`;
-    emailArgs = recipient_ids;
-  } else {
-    res.status(400).json({ error: 'Invalid recipient_ids' }); return;
-  }
+    // Parse recipient_ids (arrives as form string)
+    let recipient_ids: string | number[];
+    if (!rawRecipients || rawRecipients === 'all') {
+      recipient_ids = 'all';
+    } else {
+      try { recipient_ids = JSON.parse(rawRecipients); } catch { recipient_ids = 'all'; }
+    }
 
-  const emailRows = rows((await db.execute({ sql: emailQuery, args: emailArgs })).rows);
-  const emailList = emailRows.map((r: any) => r.email as string);
+    // Build email list
+    let emailQuery: string;
+    let emailArgs: any[] = [];
 
-  const sentTo = (!recipient_ids || recipient_ids === 'all' || (Array.isArray(recipient_ids) && recipient_ids.length === 0))
-    ? 'all'
-    : JSON.stringify(recipient_ids);
+    if (recipient_ids === 'all' || (Array.isArray(recipient_ids) && recipient_ids.length === 0)) {
+      emailQuery = `SELECT email FROM users WHERE status = 'active' AND broadcast_email = 1`;
+    } else {
+      const placeholders = (recipient_ids as number[]).map(() => '?').join(',');
+      emailQuery = `SELECT email FROM users WHERE id IN (${placeholders}) AND status = 'active' AND broadcast_email = 1`;
+      emailArgs = recipient_ids as number[];
+    }
 
-  // Send emails
-  const { sent, error: emailError } = await sendCustomAnnouncementEmail(
-    emailList,
-    subject.trim(),
-    content.trim(),
-    sentByName,
-  );
+    const emailRows = rows((await db.execute({ sql: emailQuery, args: emailArgs })).rows);
+    const emailList = emailRows.map((r: any) => r.email as string);
 
-  // Persist record
-  await db.execute({
-    sql: `INSERT INTO custom_announcements (subject, content, sent_to, recipient_count, sent_by) VALUES (?,?,?,?,?)`,
-    args: [subject.trim(), content.trim(), sentTo, sent, req.user!.id],
-  });
+    // Upload image to Cloudinary if provided
+    let imageUrl: string | null = null;
+    let imagePublicId: string | null = null;
+    if (imageFile) {
+      try {
+        const result = await uploadImage(imageFile.buffer, 'skyhawks/announcements');
+        imageUrl = result.url;
+        imagePublicId = result.publicId;
+      } catch (e: any) {
+        res.status(500).json({ error: `Image upload failed: ${e.message}` }); return;
+      }
+    }
 
-  res.status(201).json({
-    message: `Announcement sent to ${sent} member${sent !== 1 ? 's' : ''}`,
-    recipients: sent,
-    ...(emailError && { emailWarning: emailError }),
+    // Send emails
+    const pos = (image_position === 'above' || image_position === 'below') ? image_position : 'below';
+    const { sent, error: emailError } = await sendCustomAnnouncementEmail(
+      emailList,
+      subject.trim(),
+      content.trim(),
+      sentByName,
+      imageUrl,
+      pos,
+    );
+
+    // Persist record
+    const sentTo = recipient_ids === 'all' || (Array.isArray(recipient_ids) && recipient_ids.length === 0)
+      ? 'all'
+      : JSON.stringify(recipient_ids);
+
+    await db.execute({
+      sql: `INSERT INTO custom_announcements
+              (subject, content, sent_to, recipient_count, sent_by, image_url, image_public_id, image_position)
+            VALUES (?,?,?,?,?,?,?,?)`,
+      args: [subject.trim(), content.trim(), sentTo, sent, req.user!.id, imageUrl, imagePublicId, pos],
+    });
+
+    res.status(201).json({
+      message: `Announcement sent to ${sent} member${sent !== 1 ? 's' : ''}`,
+      recipients: sent,
+      ...(emailError && { emailWarning: emailError }),
+    });
   });
 });
 
-// GET /broadcast-settings — full member list with broadcast_email flag (admin only)
+// DELETE /team/:id — delete a team-selection announcement (manager/admin)
+router.delete('/team/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const existing = (await db.execute({ sql: `SELECT id FROM announcements WHERE id = ?`, args: [req.params.id] })).rows[0];
+  if (!existing) { res.status(404).json({ error: 'Announcement not found' }); return; }
+  await db.execute({ sql: `DELETE FROM announcements WHERE id = ?`, args: [req.params.id] });
+  res.json({ message: 'Announcement deleted' });
+});
+
+// DELETE /custom/:id — delete a custom broadcast announcement (manager/admin)
+router.delete('/custom/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const existing = row((await db.execute({ sql: `SELECT id, image_public_id FROM custom_announcements WHERE id = ?`, args: [req.params.id] })).rows[0]);
+  if (!existing) { res.status(404).json({ error: 'Announcement not found' }); return; }
+  // Delete image from Cloudinary if present
+  if (existing.image_public_id) {
+    deleteImage(existing.image_public_id).catch(console.error);
+  }
+  await db.execute({ sql: `DELETE FROM custom_announcements WHERE id = ?`, args: [req.params.id] });
+  res.json({ message: 'Announcement deleted' });
+});
+
+// GET /broadcast-settings — full member list with broadcast_email flag (admin)
 router.get('/broadcast-settings', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
   const result = await getDb().execute(
     `SELECT id, name, email, avatar_url, broadcast_email FROM users WHERE status = 'active' ORDER BY name`
@@ -113,7 +178,7 @@ router.get('/broadcast-settings', authenticate, authorize('admin'), async (_req:
   res.json(rows(result.rows));
 });
 
-// PATCH /broadcast-settings/:userId — toggle broadcast_email for a member (admin only)
+// PATCH /broadcast-settings/:userId — toggle broadcast_email (admin)
 router.patch('/broadcast-settings/:userId', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   const { broadcast_email } = req.body;
   if (broadcast_email !== 0 && broadcast_email !== 1) {

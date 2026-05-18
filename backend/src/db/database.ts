@@ -247,6 +247,11 @@ export async function initDb(): Promise<void> {
   // Migrate: broadcast_email opt-out flag on users
   try { await db.execute(`ALTER TABLE users ADD COLUMN broadcast_email INTEGER NOT NULL DEFAULT 1`); } catch { /* exists */ }
 
+  // Migrate: image support for custom_announcements
+  try { await db.execute(`ALTER TABLE custom_announcements ADD COLUMN image_url TEXT`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE custom_announcements ADD COLUMN image_public_id TEXT`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE custom_announcements ADD COLUMN image_position TEXT NOT NULL DEFAULT 'below'`); } catch { /* exists */ }
+
   // Migrate: tournament link + announcement flag on matches
   try { await db.execute(`ALTER TABLE matches ADD COLUMN tournament_id INTEGER REFERENCES tournaments(id)`); } catch { /* exists */ }
   try { await db.execute(`ALTER TABLE matches ADD COLUMN is_announced INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }

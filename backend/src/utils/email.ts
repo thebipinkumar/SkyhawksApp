@@ -150,6 +150,8 @@ export async function sendCustomAnnouncementEmail(
   subject: string,
   content: string,
   sentByName: string,
+  imageUrl?: string | null,
+  imagePosition: 'above' | 'below' = 'below',
 ): Promise<{ sent: number; error?: string }> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping custom announcement email');
@@ -157,10 +159,20 @@ export async function sendCustomAnnouncementEmail(
   }
   if (recipients.length === 0) return { sent: 0 };
 
-  // Convert plain-text newlines to <br> for HTML
+  // Convert plain-text newlines to <br> for HTML, escape HTML entities
   const htmlContent = content
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\n/g, '<br>');
+
+  const imgBlock = imageUrl
+    ? `<div style="margin:20px 0;text-align:center;">
+         <img src="${imageUrl}" alt="Announcement image" style="max-width:100%;border-radius:10px;display:block;margin:0 auto;" />
+       </div>`
+    : '';
+
+  const bodyContent = imageUrl && imagePosition === 'above'
+    ? `${imgBlock}<div style="color:#334155;font-size:15px;line-height:1.7;">${htmlContent}</div>`
+    : `<div style="color:#334155;font-size:15px;line-height:1.7;">${htmlContent}</div>${imgBlock}`;
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -177,7 +189,7 @@ export async function sendCustomAnnouncementEmail(
         <tr>
           <td style="padding:32px;">
             <h2 style="margin:0 0 20px;font-size:18px;color:#1e1b4b;">${subject.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</h2>
-            <div style="color:#334155;font-size:15px;line-height:1.7;">${htmlContent}</div>
+            ${bodyContent}
             <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0 16px;">
             <p style="margin:0;font-size:13px;color:#94a3b8;">Sent by <strong style="color:#64748b;">${sentByName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong></p>
             <p style="margin:8px 0 0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
