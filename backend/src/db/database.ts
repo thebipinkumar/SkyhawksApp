@@ -142,6 +142,24 @@ export async function initDb(): Promise<void> {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS merchandise_extras (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      jersey_number TEXT,
+      jersey_label TEXT,
+      whites_tshirt_size TEXT,
+      whites_lower_size TEXT,
+      whites_sleeve TEXT,
+      whites_jersey_status TEXT NOT NULL DEFAULT 'required',
+      colored_tshirt_size TEXT,
+      colored_lower_size TEXT,
+      colored_sleeve TEXT,
+      colored_jersey_status TEXT NOT NULL DEFAULT 'required',
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS tournaments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,

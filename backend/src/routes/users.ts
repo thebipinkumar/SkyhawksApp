@@ -114,6 +114,20 @@ router.put('/:id/profile', authenticate, authorize('admin'), async (req: AuthReq
   if (!(await db.execute({ sql: 'SELECT id FROM users WHERE id=?', args: [req.params.id] })).rows[0]) {
     res.status(404).json({ error: 'User not found' }); return;
   }
+
+  // Jersey number uniqueness check
+  if (jersey_number) {
+    const conflict = (await db.execute({
+      sql: `SELECT name FROM users WHERE jersey_number = ? AND status = 'active' AND id != ?
+            UNION ALL SELECT name FROM merchandise_extras WHERE jersey_number = ?`,
+      args: [jersey_number, req.params.id, jersey_number],
+    })).rows[0];
+    if (conflict) {
+      const taken = Object.fromEntries(Object.entries(conflict));
+      res.status(409).json({ error: `Jersey number ${jersey_number} is already assigned to ${taken.name}` }); return;
+    }
+  }
+
   await db.execute({
     sql: `UPDATE users SET name=?,phone=?,bio=?,batting_style=?,bowling_style=?,
           date_of_birth=?,jersey_number=?,jersey_label=?,

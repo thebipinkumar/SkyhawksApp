@@ -79,7 +79,7 @@ function AppRoutes() {
       <Route path="/budget"         element={<ProtectedRoute roles={['manager','admin']}><Budget /></ProtectedRoute>} />
       <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
       <Route path="/admin/settings"        element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
-      <Route path="/jerseys"               element={<ProtectedRoute roles={['admin','manager','selector']}><JerseyList /></ProtectedRoute>} />
+      <Route path="/jerseys"               element={<ProtectedRoute roles={['admin','manager','selector','player']}><JerseyList /></ProtectedRoute>} />
       <Route path="/admin/members/:id"     element={<ProtectedRoute roles={['admin']}><AdminMemberProfile /></ProtectedRoute>} />
       <Route path="/membership-expired"    element={<MembershipExpired />} />
 
