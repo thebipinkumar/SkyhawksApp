@@ -22,10 +22,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (storedToken && storedUser) {
+      const cached = JSON.parse(storedUser);
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      setUser(cached);           // show cached immediately so app doesn't block
+      setLoading(false);
+      // Silently refresh in background to pick up any server-side changes
+      // (avatar_url updated by admin, role changes, membership expiry, etc.)
+      api.get('/auth/me')
+        .then(({ data }) => {
+          const fresh = { ...cached, ...data };
+          setUser(fresh);
+          localStorage.setItem('user', JSON.stringify(fresh));
+        })
+        .catch(() => { /* token may be expired — ProtectedRoute will redirect */ });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
