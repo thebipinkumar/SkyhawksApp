@@ -18,6 +18,7 @@ import UsersPage from './pages/Users';
 import Profile from './pages/Profile';
 import AdminSettings from './pages/AdminSettings';
 import JerseyList from './pages/JerseyList';
+import MembershipPage from './pages/MembershipPage';
 import MembershipExpired from './pages/MembershipExpired';
 import AdminMemberProfile from './pages/AdminMemberProfile';
 import About from './pages/public/About';
@@ -80,6 +81,7 @@ function AppRoutes() {
       <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
       <Route path="/admin/settings"        element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
       <Route path="/jerseys"               element={<ProtectedRoute roles={['admin','manager','selector','player']}><JerseyList /></ProtectedRoute>} />
+      <Route path="/membership"            element={<ProtectedRoute roles={['admin','manager']}><MembershipPage /></ProtectedRoute>} />
       <Route path="/admin/members/:id"     element={<ProtectedRoute roles={['admin']}><AdminMemberProfile /></ProtectedRoute>} />
       <Route path="/membership-expired"    element={<MembershipExpired />} />
 

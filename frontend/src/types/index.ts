@@ -112,3 +112,44 @@ export interface Announcement {
   sent_by_name: string;
   sent_at: string;
 }
+
+export type MembershipPaymentStatus = 'paid' | 'pending' | 'waived';
+
+export interface MembershipFee {
+  id: number;
+  year: number;
+  amount: number;
+  currency: string;
+  created_by: number;
+  updated_at: string;
+}
+
+export interface MembershipPayment {
+  user_id: number;
+  name: string;
+  email: string;
+  avatar_url?: string | null;
+  status: MembershipPaymentStatus;
+  paid_date?: string | null;
+  notes?: string | null;
+  updated_at?: string | null;
+}
+
+export interface MyMembershipStatus {
+  year: number;
+  status: MembershipPaymentStatus;
+  paid_date?: string | null;
+  fee_amount?: number | null;
+  fee_currency: string;
+}
+
+export interface PendingAvailabilityMatch {
+  id: number;
+  title: string;
+  opponent: string;
+  venue: string;
+  match_date: string;
+  match_time: string;
+  match_type: string;
+  tournament_name?: string | null;
+}

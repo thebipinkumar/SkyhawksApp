@@ -17,6 +17,32 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   res.json(rows(result.rows));
 });
 
+// GET /my-pending — scheduled upcoming matches where current user hasn't responded to availability
+router.get('/my-pending', authenticate, async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const result = await db.execute({
+    sql: `SELECT m.id, m.title, m.opponent, m.venue, m.match_date, m.match_time, m.match_type,
+                 t.name as tournament_name
+          FROM matches m
+          LEFT JOIN tournaments t ON m.tournament_id = t.id
+          WHERE m.status = 'scheduled'
+            AND m.match_date >= DATE('now')
+            AND (
+              NOT EXISTS (
+                SELECT 1 FROM match_availability ma
+                WHERE ma.match_id = m.id AND ma.player_id = ?
+              )
+              OR EXISTS (
+                SELECT 1 FROM match_availability ma
+                WHERE ma.match_id = m.id AND ma.player_id = ? AND ma.status = 'not_responded'
+              )
+            )
+          ORDER BY m.match_date ASC, m.match_time ASC`,
+    args: [req.user!.id, req.user!.id],
+  });
+  res.json(rows(result.rows));
+});
+
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   const db = getDb();
   const match = row((await db.execute({

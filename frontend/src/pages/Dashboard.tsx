@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
-import { Match, BudgetSummary } from '../types';
-import { Calendar, Users, DollarSign, Megaphone, Clock, Trophy } from 'lucide-react';
+import { Match, BudgetSummary, MyMembershipStatus, PendingAvailabilityMatch } from '../types';
+import { Calendar, Users, DollarSign, Megaphone, Clock, Trophy, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -11,6 +11,8 @@ export default function Dashboard() {
   const [totalMembers, setTotalMembers] = useState(0);
   const [budget, setBudget] = useState<BudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [membershipStatus, setMembershipStatus] = useState<MyMembershipStatus | null>(null);
+  const [pendingMatches, setPendingMatches] = useState<PendingAvailabilityMatch[]>([]);
 
   const userRoles: string[] = (user as any)?.roles ?? (user?.role ? [user.role] : []);
 
@@ -32,6 +34,19 @@ export default function Dashboard() {
           const budgetRes = await api.get('/budget');
           setBudget(budgetRes.data.summary);
         }
+
+        // Membership fee status (all roles)
+        try {
+          const msRes = await api.get('/membership/my-payment');
+          setMembershipStatus(msRes.data);
+        } catch { /* non-critical */ }
+
+        // Pending availability (all roles)
+        try {
+          const paRes = await api.get('/matches/my-pending');
+          setPendingMatches(paRes.data);
+        } catch { /* non-critical */ }
+
       } catch (err) {
         console.error(err);
       } finally {
@@ -42,7 +57,7 @@ export default function Dashboard() {
   }, [user]);
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-  const formatCurrency = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
+  const formatCurrency = (n: number) => new Intl.NumberFormat('en-SG', { style: 'currency', currency: 'SGD', maximumFractionDigits: 0 }).format(n || 0);
 
   const statusColor = { scheduled: 'text-blue-600 bg-blue-50', completed: 'text-green-600 bg-green-50', cancelled: 'text-red-600 bg-red-50' };
 
@@ -52,6 +67,62 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
         <p className="text-gray-500 mt-1">Here's what's happening at Skyhawks Cricket Club</p>
       </div>
+
+      {/* ── Membership Fee Pending Alert ── */}
+      {membershipStatus && membershipStatus.status === 'pending' && (
+        <div className="mb-6 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 flex items-start gap-3 animate-pulse-border shadow-md">
+          <span className="mt-0.5 shrink-0 animate-bounce">
+            <AlertTriangle size={22} className="text-amber-500" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-amber-800 text-base">
+              ⚠️ Annual Membership Fee Payment Pending
+            </p>
+            <p className="text-amber-700 text-sm mt-0.5">
+              Your {membershipStatus.year} membership fee
+              {membershipStatus.fee_amount
+                ? ` of ${membershipStatus.fee_currency} ${membershipStatus.fee_amount.toFixed(2)}`
+                : ''}{' '}
+              is <strong>unpaid</strong>. Please make payment as soon as possible to avoid deactivation of your profile.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pending Availability Reminders ── */}
+      {pendingMatches.length > 0 && (
+        <div className="mb-6 rounded-xl border border-blue-300 bg-blue-50 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle size={20} className="text-blue-600 shrink-0" />
+            <p className="font-bold text-blue-800 text-base">
+              Availability Response Pending ({pendingMatches.length} match{pendingMatches.length > 1 ? 'es' : ''})
+            </p>
+          </div>
+          <p className="text-blue-700 text-sm mb-3">
+            Please update your availability for the following scheduled match{pendingMatches.length > 1 ? 'es' : ''}:
+          </p>
+          <div className="space-y-2">
+            {pendingMatches.map(m => (
+              <Link key={m.id} to="/matches"
+                className="flex items-center justify-between bg-white rounded-lg px-4 py-2.5 hover:bg-blue-100 transition-colors border border-blue-200">
+                <div>
+                  <p className="font-semibold text-gray-800 text-sm">{m.title}</p>
+                  <p className="text-xs text-gray-500">vs {m.opponent}{m.tournament_name ? ` · ${m.tournament_name}` : ''}</p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-xs font-medium text-blue-700">
+                    {new Date(m.match_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                  <span className="text-xs text-gray-400">{m.match_time}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <p className="text-xs text-blue-600 mt-3">
+            Go to <Link to="/matches" className="underline font-medium">Matches</Link> to respond to each match.
+          </p>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -162,6 +233,12 @@ export default function Dashboard() {
                 <Link to="/budget" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <DollarSign size={18} className="text-green-600" />
                   <span className="text-sm font-medium">Manage Finance</span>
+                </Link>
+              )}
+              {userRoles.some(r => ['manager', 'admin'].includes(r)) && (
+                <Link to="/membership" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                  <Users size={18} className="text-amber-600" />
+                  <span className="text-sm font-medium">Membership Fees</span>
                 </Link>
               )}
             </div>

@@ -11,6 +11,7 @@ const navLinks = [
   { to: '/budget',         label: 'Finance',         roles: ['manager', 'admin'] },
   { to: '/users',          label: 'Members',         roles: ['admin', 'manager', 'selector'] },
   { to: '/jerseys',        label: 'Merchandise',     roles: ['admin', 'manager', 'selector', 'player'] },
+  { to: '/membership',     label: 'Membership',      roles: ['admin', 'manager'] },
   { to: '/admin/settings', label: 'Settings',        roles: ['admin'] },
 ];
 

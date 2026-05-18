@@ -171,6 +171,30 @@ export async function initDb(): Promise<void> {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (created_by) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS membership_fees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      year INTEGER UNIQUE NOT NULL,
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'SGD',
+      created_by INTEGER NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS membership_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('paid','pending','waived')),
+      paid_date TEXT,
+      notes TEXT,
+      updated_by INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (updated_by) REFERENCES users(id),
+      UNIQUE(user_id, year)
+    );
   `);
 
   // Migrate: add status column to users for existing databases
