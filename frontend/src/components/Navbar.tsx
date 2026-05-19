@@ -71,7 +71,7 @@ export default function Navbar() {
             </Link>
 
             {/* ── Desktop nav (≥ 1024 px) ── */}
-            <div className="hidden lg:flex items-center gap-0.5">
+            <div className="hidden xl:flex items-center gap-0.5">
               <Link to="/public/about"
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/public/about' ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
                 <Home size={14} /> Home
@@ -86,7 +86,7 @@ export default function Navbar() {
             </div>
 
             {/* ── Desktop user block (≥ 1024 px) ── */}
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden xl:flex items-center gap-2">
               <Link to="/profile"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-800 transition-colors">
                 {user?.avatar_url
@@ -109,7 +109,7 @@ export default function Navbar() {
 
             {/* ── Hamburger (mobile + tablet, < 1024 px) ── */}
             <button
-              className="lg:hidden p-2 rounded-lg hover:bg-blue-800 transition-colors"
+              className="xl:hidden p-2 rounded-lg hover:bg-blue-800 transition-colors"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu">
               <Menu size={24} />
@@ -121,14 +121,14 @@ export default function Navbar() {
 
       {/* ── Backdrop ───────────────────────────────────────────────────────── */}
       <div
-        className={`fixed inset-0 bg-black/60 z-40 lg:hidden transition-opacity duration-300 ${menuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/60 z-40 xl:hidden transition-opacity duration-300 ${menuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setMenuOpen(false)}
         aria-hidden="true"
       />
 
       {/* ── Side drawer (slides in from right) ─────────────────────────────── */}
       <div
-        className={`fixed top-0 right-0 h-full w-72 bg-blue-900 z-50 lg:hidden
+        className={`fixed top-0 right-0 h-full w-72 bg-blue-900 z-50 xl:hidden
                     flex flex-col shadow-2xl
                     transform transition-transform duration-300 ease-in-out
                     ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}
