@@ -1,8 +1,9 @@
 import { useEffect, useState, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
-import { Shirt, Download, CheckCircle, XCircle, Plus, X, Trash2 } from 'lucide-react';
+import { Shirt, Download, CheckCircle, XCircle, Plus, X, Trash2, UserCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -54,8 +55,8 @@ export default function JerseyList() {
   const [jerseyNumError, setJerseyNumError] = useState('');
 
   const myRoles: string[] = (user as any)?.roles ?? ((user as any)?.role ? [(user as any).role] : []);
-  const canEdit    = myRoles.includes('admin') || myRoles.includes('manager');
-  const isPlayerOnly = !canEdit && myRoles.includes('player');
+  const canEdit   = myRoles.includes('admin') || myRoles.includes('manager');
+  const isReadOnly = !canEdit; // players, selectors — can view but not edit
 
   const load = () => api.get('/jerseys').then(r => { setPlayers(r.data); setLoading(false); });
   useEffect(() => { load(); }, []);
@@ -186,9 +187,22 @@ export default function JerseyList() {
         </div>
       </div>
 
-      {isPlayerOnly && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2 text-sm mb-4">
-          You have read-only access. Download PDF to get a printable copy.
+      {isReadOnly && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 text-sm text-blue-800">
+            <p className="font-semibold mb-0.5">Read-only view</p>
+            <p className="text-blue-700">
+              Want to update your jersey number, kit sizes or other merchandise details?{' '}
+              <Link to="/profile" className="inline-flex items-center gap-1 font-semibold text-blue-900 underline underline-offset-2 hover:text-blue-700 transition-colors">
+                <UserCircle2 size={14} /> Go to your Profile
+              </Link>{' '}
+              to make changes.
+            </p>
+          </div>
+          <Link to="/profile"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium rounded-lg transition-colors self-start sm:self-auto">
+            <UserCircle2 size={15} /> Update My Details
+          </Link>
         </div>
       )}
 
