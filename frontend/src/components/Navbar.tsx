@@ -4,7 +4,7 @@ import { useClub } from '../contexts/ClubContext';
 import {
   LogOut, Menu, X, Trophy, UserCircle, Home, Settings,
   Calendar, ClipboardList, Megaphone, DollarSign, Users,
-  Package, CreditCard,
+  Package, CreditCard, LayoutDashboard,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -70,50 +70,24 @@ export default function Navbar() {
               <span className="hidden sm:inline">{club?.club_name || 'Skyhawks CC'}</span>
             </Link>
 
-            {/* ── Desktop nav (≥ 1024 px) ── */}
-            <div className="hidden xl:flex items-center gap-0.5">
-              <Link to="/public/about"
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/public/about' ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
-                <Home size={14} /> Home
-              </Link>
-              {filteredLinks.map(({ to, label, icon: Icon }) => (
-                <Link key={to} to={to}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === to ? 'bg-blue-700' : 'text-blue-100 hover:bg-blue-800'}`}>
-                  <Icon size={14} />
-                  {label}
-                </Link>
-              ))}
-            </div>
-
-            {/* ── Desktop user block (≥ 1024 px) ── */}
-            <div className="hidden xl:flex items-center gap-2">
-              <Link to="/profile"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-blue-800 transition-colors">
+            {/* ── Right side: avatar + hamburger ── */}
+            <div className="flex items-center gap-2">
+              {/* Quick profile avatar (top bar) */}
+              <Link to="/profile" className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-blue-800 transition-colors">
                 {user?.avatar_url
                   ? <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
                   : <UserCircle size={22} className="text-blue-200" />}
-                <div className="text-right">
-                  <p className="text-sm font-medium leading-tight">{user?.name}</p>
-                  <div className="flex gap-1 justify-end flex-wrap">
-                    {userRoles.map(r => (
-                      <span key={r} className={`text-xs ${roleBadgeClass[r] ?? 'badge-player'}`}>{r}</span>
-                    ))}
-                  </div>
-                </div>
+                <span className="hidden sm:block text-sm font-medium leading-tight">{user?.name}</span>
               </Link>
-              <button onClick={handleLogout}
-                className="p-2 rounded-lg hover:bg-blue-800 transition-colors" title="Logout">
-                <LogOut size={18} />
+
+              {/* Hamburger — always visible */}
+              <button
+                className="p-2 rounded-lg hover:bg-blue-800 transition-colors"
+                onClick={() => setMenuOpen(true)}
+                aria-label="Open menu">
+                <Menu size={24} />
               </button>
             </div>
-
-            {/* ── Hamburger (mobile + tablet, < 1024 px) ── */}
-            <button
-              className="xl:hidden p-2 rounded-lg hover:bg-blue-800 transition-colors"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu">
-              <Menu size={24} />
-            </button>
 
           </div>
         </div>
@@ -121,14 +95,14 @@ export default function Navbar() {
 
       {/* ── Backdrop ───────────────────────────────────────────────────────── */}
       <div
-        className={`fixed inset-0 bg-black/60 z-40 xl:hidden transition-opacity duration-300 ${menuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ${menuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setMenuOpen(false)}
         aria-hidden="true"
       />
 
       {/* ── Side drawer (slides in from right) ─────────────────────────────── */}
       <div
-        className={`fixed top-0 right-0 h-full w-72 bg-blue-900 z-50 xl:hidden
+        className={`fixed top-0 right-0 h-full w-72 bg-blue-900 z-50
                     flex flex-col shadow-2xl
                     transform transition-transform duration-300 ease-in-out
                     ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}
@@ -167,6 +141,11 @@ export default function Navbar() {
 
         {/* Nav links — scrollable if many items */}
         <nav className="flex-1 overflow-y-auto py-2">
+          <Link to="/dashboard" onClick={() => setMenuOpen(false)}
+            className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors ${location.pathname === '/dashboard' ? 'bg-blue-700 text-white border-r-4 border-yellow-400' : 'text-blue-100 hover:bg-blue-800 hover:text-white'}`}>
+            <LayoutDashboard size={18} className="shrink-0" />
+            Dashboard
+          </Link>
           <Link to="/public/about" onClick={() => setMenuOpen(false)}
             className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors ${location.pathname === '/public/about' ? 'bg-blue-700 text-white border-r-4 border-yellow-400' : 'text-blue-100 hover:bg-blue-800 hover:text-white'}`}>
             <Home size={18} className="shrink-0" />
