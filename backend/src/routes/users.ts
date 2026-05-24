@@ -199,7 +199,46 @@ router.delete('/:id/avatar', authenticate, authorize('admin'), async (req: AuthR
 
 // Delete user (admin only)
 router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
-  await getDb().execute({ sql: 'DELETE FROM users WHERE id = ?', args: [req.params.id] });
+  const userId  = Number(req.params.id);
+  const adminId = req.user!.id;          // reassign club records to the deleting admin
+
+  if (isNaN(userId)) { res.status(400).json({ error: 'Invalid user id' }); return; }
+  if (userId === adminId) { res.status(400).json({ error: 'You cannot delete your own account' }); return; }
+
+  const db = getDb();
+
+  // Remove Cloudinary avatar if present
+  const userRow = row((await db.execute({ sql: 'SELECT avatar_public_id FROM users WHERE id = ?', args: [userId] })).rows[0]);
+  if (userRow?.avatar_public_id) {
+    try { await deleteImage(userRow.avatar_public_id as string); } catch { /* non-critical */ }
+  }
+
+  // ── 1. Delete personal records ────────────────────────────────────────────
+  await db.execute({ sql: 'DELETE FROM match_availability   WHERE player_id = ?', args: [userId] });
+  await db.execute({ sql: 'DELETE FROM team_selections      WHERE player_id = ?', args: [userId] });
+  await db.execute({ sql: 'DELETE FROM membership_payments  WHERE user_id   = ?', args: [userId] });
+
+  // ── 2. Reassign club records so history is preserved ─────────────────────
+  // (created_by / sent_by / selected_by → adminId)
+  const reassign = [
+    'UPDATE matches              SET created_by  = ? WHERE created_by  = ?',
+    'UPDATE team_selections      SET selected_by = ? WHERE selected_by = ?',
+    'UPDATE announcements        SET sent_by     = ? WHERE sent_by     = ?',
+    'UPDATE custom_announcements SET sent_by     = ? WHERE sent_by     = ?',
+    'UPDATE budget_entries       SET created_by  = ? WHERE created_by  = ?',
+    'UPDATE banner_images        SET created_by  = ? WHERE created_by  = ?',
+    'UPDATE merchandise_extras   SET created_by  = ? WHERE created_by  = ?',
+    'UPDATE tournaments          SET created_by  = ? WHERE created_by  = ?',
+    'UPDATE membership_fees      SET created_by  = ? WHERE created_by  = ?',
+    'UPDATE membership_payments  SET updated_by  = ? WHERE updated_by  = ?',
+  ];
+  for (const sql of reassign) {
+    await db.execute({ sql, args: [adminId, userId] });
+  }
+
+  // ── 3. Delete the user (user_roles cascade automatically) ─────────────────
+  await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [userId] });
+
   res.json({ message: 'User deleted' });
 });
 
