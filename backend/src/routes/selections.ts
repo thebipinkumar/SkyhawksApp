@@ -33,6 +33,9 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
   const allMembers = rows((await db.execute(`SELECT email FROM users WHERE status = 'active'`)).rows);
   const emailList = allMembers.map((m: any) => m.email);
 
+  const settingsRow = row((await db.execute(`SELECT contact_email FROM club_settings WHERE id=1`)).rows[0]);
+  const clubCc = settingsRow?.contact_email as string | undefined;
+
   const { sent, error } = await sendAnnouncementEmails(emailList, {
     matchTitle:  match.title,
     opponent:    match.opponent,
@@ -51,7 +54,7 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
       isViceCaptain: !!s.is_vice_captain,
     })),
     announcedBy: 'Selectors Committee',
-  });
+  }, clubCc);
 
   await db.execute({ sql: 'UPDATE matches SET is_announced = 1 WHERE id = ?', args: [req.params.matchId] });
   await db.execute({ sql: 'INSERT INTO announcements (match_id, message, sent_by) VALUES (?,?,?)', args: [req.params.matchId, `Team announced for ${match.title} vs ${match.opponent} on ${match.match_date}`, req.user!.id] });

@@ -117,6 +117,10 @@ router.post('/', authenticate, authorize('selector', 'manager', 'admin'), (req: 
       }
     }
 
+    // Fetch club contact email for CC
+    const settingsRow = row((await db.execute({ sql: `SELECT contact_email FROM club_settings WHERE id=1`, args: [] })).rows[0]);
+    const clubCc = settingsRow?.contact_email as string | undefined;
+
     // Send emails
     const pos = (image_position === 'above' || image_position === 'below') ? image_position : 'below';
     const { sent, error: emailError } = await sendCustomAnnouncementEmail(
@@ -126,6 +130,7 @@ router.post('/', authenticate, authorize('selector', 'manager', 'admin'), (req: 
       sentByName,
       imageUrl,
       pos,
+      clubCc,
     );
 
     // Persist record

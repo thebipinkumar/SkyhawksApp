@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { getDb, row, rows } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
+import { sendMatchScheduledEmail, MatchNotificationData } from '../utils/email.js';
 
 const router = Router();
 
@@ -65,7 +66,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { title, opponent, venue, match_date, match_time, match_type, notes, ball_type, attire, match_fee, scorecard_url, tournament_id } = req.body;
+  const { title, opponent, venue, match_date, match_time, match_type, notes, ball_type, attire, match_fee, scorecard_url, tournament_id, notify_members } = req.body;
   if (!title || !opponent || !venue || !match_date || !match_time) {
     res.status(400).json({ error: 'Title, opponent, venue, date and time are required' }); return;
   }
@@ -78,7 +79,70 @@ router.post('/', authenticate, authorize('manager', 'admin'), async (req: AuthRe
            tournament_id || null, req.user!.id],
   });
   const match = row((await db.execute({ sql: 'SELECT * FROM matches WHERE id = ?', args: [Number(result.lastInsertRowid)] })).rows[0]);
+
+  // Send notification email to all members if requested (non-blocking)
+  if (notify_members) {
+    (async () => {
+      try {
+        const [membersRes, settingsRes, tournamentRes] = await Promise.all([
+          db.execute({ sql: `SELECT email FROM users WHERE status='active' AND broadcast_email=1`, args: [] }),
+          db.execute({ sql: `SELECT contact_email FROM club_settings WHERE id=1`, args: [] }),
+          tournament_id ? db.execute({ sql: `SELECT name FROM tournaments WHERE id=?`, args: [tournament_id] }) : Promise.resolve(null),
+        ]);
+        const emails  = rows(membersRes.rows).map((r: any) => r.email as string).filter(Boolean);
+        const settings = row(settingsRes.rows[0]);
+        const cc      = settings?.contact_email as string | undefined;
+        const tName   = tournamentRes ? (row(tournamentRes.rows[0])?.name as string | null) : null;
+
+        const data: MatchNotificationData = {
+          matchTitle: title, opponent, venue, matchDate: match_date, matchTime: match_time,
+          matchType: match_type || 'T20', ballType: ball_type, attire, matchFee: match_fee ?? null,
+          tournament: tName, notes: notes || null,
+        };
+        await sendMatchScheduledEmail(emails, data, cc);
+      } catch (err) { console.error('Match notification error:', err); }
+    })();
+  }
+
   res.status(201).json(match);
+});
+
+// Re-trigger match notification to all members (manager/admin)
+router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const match = row((await db.execute({
+    sql: `SELECT m.*, t.name as tournament_name FROM matches m
+          LEFT JOIN tournaments t ON m.tournament_id = t.id
+          WHERE m.id = ?`,
+    args: [req.params.id],
+  })).rows[0]);
+  if (!match) { res.status(404).json({ error: 'Match not found' }); return; }
+
+  const [membersRes, settingsRes] = await Promise.all([
+    db.execute({ sql: `SELECT email FROM users WHERE status='active' AND broadcast_email=1`, args: [] }),
+    db.execute({ sql: `SELECT contact_email FROM club_settings WHERE id=1`, args: [] }),
+  ]);
+  const emails   = rows(membersRes.rows).map((r: any) => r.email as string).filter(Boolean);
+  const settings = row(settingsRes.rows[0]);
+  const cc       = settings?.contact_email as string | undefined;
+
+  const data: MatchNotificationData = {
+    matchTitle: match.title as string,
+    opponent:   match.opponent as string,
+    venue:      match.venue as string,
+    matchDate:  match.match_date as string,
+    matchTime:  match.match_time as string,
+    matchType:  match.match_type as string,
+    ballType:   match.ball_type as string | undefined,
+    attire:     match.attire as string | undefined,
+    matchFee:   match.match_fee as number | null,
+    tournament: match.tournament_name as string | null,
+    notes:      match.notes as string | null,
+  };
+
+  const result = await sendMatchScheduledEmail(emails, data, cc);
+  if (result.error) { res.status(500).json({ error: result.error }); return; }
+  res.json({ message: `Notification sent to ${result.sent} member${result.sent !== 1 ? 's' : ''}`, sent: result.sent });
 });
 
 router.put('/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {

@@ -63,8 +63,13 @@ router.patch('/:id/approve', authenticate, authorize('manager', 'admin'), async 
   // Send welcome email (non-blocking — don't let email failure break approval)
   try {
     const year = new Date().getFullYear();
-    const feeRow = row((await db.execute({ sql: `SELECT amount, currency FROM membership_fees WHERE year = ?`, args: [year] })).rows[0]);
-    sendWelcomeEmail(user.email, user.name, year, feeRow?.amount ?? null, feeRow?.currency ?? 'SGD').catch(console.error);
+    const [feeRes, settingsRes] = await Promise.all([
+      db.execute({ sql: `SELECT amount, currency FROM membership_fees WHERE year = ?`, args: [year] }),
+      db.execute({ sql: `SELECT contact_email FROM club_settings WHERE id=1`, args: [] }),
+    ]);
+    const feeRow = row(feeRes.rows[0]);
+    const clubCc = (row(settingsRes.rows[0])?.contact_email as string | undefined);
+    sendWelcomeEmail(user.email, user.name, year, feeRow?.amount ?? null, feeRow?.currency ?? 'SGD', clubCc).catch(console.error);
   } catch { /* non-critical */ }
 
   res.json({ message: 'User approved' });

@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { Match, AvailabilityRecord, AvailabilityStatus, Tournament, TeamSelection } from '../types';
 import {
   Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp,
-  CheckCircle, XCircle, HelpCircle, MinusCircle, ExternalLink, Trophy, Users,
+  CheckCircle, XCircle, HelpCircle, MinusCircle, ExternalLink, Trophy, Users, Bell,
 } from 'lucide-react';
 
 const MATCH_TYPES   = ['T20', 'T25', 'T30'];
@@ -17,7 +17,7 @@ const emptyMatch = {
   title: '', opponent: '', venue: '', match_date: '', match_time: '',
   match_type: 'T20', status: 'scheduled', result: '', notes: '',
   ball_type: 'White', attire: 'Colored', match_fee: '', scorecard_url: '',
-  tournament_id: '',
+  tournament_id: '', notify_members: true,
 };
 
 const emptyTournament = { name: '', format: '', start_date: '', end_date: '', description: '' };
@@ -47,6 +47,10 @@ export default function Matches() {
   const [editTournament, setEditTournament] = useState<Tournament | null>(null);
   const [tSubmitting, setTSubmitting]       = useState(false);
   const [tError, setTError]                 = useState('');
+
+  // Notifications
+  const [notifying, setNotifying]           = useState<number | null>(null);
+  const [notifyMsg, setNotifyMsg]           = useState('');
 
   // Availability
   const [availability, setAvailability]     = useState<Record<number, AvailabilityRecord[]>>({});
@@ -122,6 +126,7 @@ export default function Matches() {
       match_fee: m.match_fee != null ? String(m.match_fee) : '',
       scorecard_url: m.scorecard_url || '',
       tournament_id: m.tournament_id != null ? String(m.tournament_id) : '',
+      notify_members: false,  // not used on edit; hidden in form
     });
     setEditMatch(m); setShowForm(true); setError('');
   };
@@ -133,6 +138,8 @@ export default function Matches() {
         ...form,
         match_fee: form.match_fee !== '' ? Number(form.match_fee) : null,
         tournament_id: form.tournament_id !== '' ? Number(form.tournament_id) : null,
+        // only send notify_members on create; strip from edit payload
+        ...(editMatch ? { notify_members: undefined } : { notify_members: form.notify_members }),
       };
       editMatch ? await api.put(`/matches/${editMatch.id}`, payload) : await api.post('/matches', payload);
       setShowForm(false); load();
@@ -144,6 +151,18 @@ export default function Matches() {
     if (!confirm('Delete this match?')) return;
     try { await api.delete(`/matches/${id}`); load(); }
     catch (err: any) { alert(err.response?.data?.error || 'Failed to delete match.'); }
+  };
+
+  const handleNotify = async (id: number) => {
+    setNotifying(id); setNotifyMsg('');
+    try {
+      const { data } = await api.post(`/matches/${id}/notify`);
+      setNotifyMsg(data.message || 'Notification sent!');
+      setTimeout(() => setNotifyMsg(''), 4000);
+    } catch (err: any) {
+      setNotifyMsg(err.response?.data?.error || 'Failed to send notification');
+      setTimeout(() => setNotifyMsg(''), 4000);
+    } finally { setNotifying(null); }
   };
 
   // Tournament CRUD
@@ -222,6 +241,12 @@ export default function Matches() {
         ))}
       </div>
 
+      {notifyMsg && (
+        <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${notifyMsg.includes('Failed') || notifyMsg.includes('error') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+          <Bell size={14} className="inline mr-1.5" />{notifyMsg}
+        </div>
+      )}
+
       {loading ? (
         <div className="grid gap-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}</div>
       ) : filtered.length === 0 ? (
@@ -288,7 +313,17 @@ export default function Matches() {
                     )}
                   </div>
                   {canManage && (
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                      {match.status === 'scheduled' && (
+                        <button
+                          onClick={() => handleNotify(match.id)}
+                          disabled={notifying === match.id}
+                          title="Re-send match notification to all members"
+                          className="flex items-center gap-1 text-sm py-1.5 px-3 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-50">
+                          <Bell size={14} className={notifying === match.id ? 'animate-bounce' : ''} />
+                          {notifying === match.id ? 'Sending…' : 'Notify'}
+                        </button>
+                      )}
                       <button onClick={() => openEdit(match)} className="btn-secondary flex items-center gap-1 text-sm py-1.5 px-3">
                         <Edit2 size={14} /> Edit
                       </button>
@@ -510,6 +545,28 @@ export default function Matches() {
                   onChange={e => setForm(f => ({...f, scorecard_url: e.target.value}))}
                   placeholder="https://cricclubs.com/..." />
               </div>
+              {/* Notify members — only on create */}
+              {!editMatch && (
+                <div className="border-t pt-4">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={form.notify_members}
+                      onChange={e => setForm(f => ({ ...f, notify_members: e.target.checked }))}
+                      className="mt-0.5 w-4 h-4 accent-blue-600 shrink-0"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 group-hover:text-blue-700 transition-colors flex items-center gap-1.5">
+                        <Bell size={14} className="text-blue-600" /> Notify all members via email
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Sends a match alert to every active member with email notifications enabled.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
                 <button type="submit" disabled={submitting} className="btn-primary">

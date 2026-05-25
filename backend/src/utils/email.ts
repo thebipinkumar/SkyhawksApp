@@ -3,6 +3,127 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
 
+// ── Match scheduled notification email ────────────────────────────────────────
+
+export interface MatchNotificationData {
+  matchTitle: string;
+  opponent: string;
+  venue: string;
+  matchDate: string;
+  matchTime: string;
+  matchType: string;
+  ballType?: string;
+  attire?: string;
+  matchFee?: number | null;
+  tournament?: string | null;
+  notes?: string | null;
+}
+
+function buildMatchNotificationHtml(data: MatchNotificationData): string {
+  const badges = [
+    data.ballType ? `🏏 ${data.ballType} Ball` : null,
+    data.attire   ? `👕 ${data.attire} Attire` : null,
+    data.matchFee != null ? `💰 Match Fee: S$${data.matchFee}` : null,
+  ].filter(Boolean).map(b =>
+    `<span style="display:inline-block;background:#eff6ff;color:#1d4ed8;font-size:12px;padding:3px 10px;border-radius:9999px;margin:2px 4px 2px 0;">${b}</span>`
+  ).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:32px 32px 24px;text-align:center;">
+            <p style="margin:0 0 4px;color:#93c5fd;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Skyhawks Cricket Club</p>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">📅 Match Scheduled</h1>
+          </td>
+        </tr>
+
+        <!-- Match details -->
+        <tr>
+          <td style="padding:28px 32px 24px;">
+            <h2 style="margin:0 0 4px;font-size:20px;color:#0f172a;font-weight:700;">${data.matchTitle}</h2>
+            <p style="margin:0 0 20px;font-size:16px;color:#1d4ed8;font-weight:600;">vs ${data.opponent}</p>
+
+            <table cellpadding="0" cellspacing="0" width="100%">
+              ${data.tournament ? `<tr>
+                <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">🏆</td>
+                <td style="padding:7px 0;font-size:14px;color:#0f172a;font-weight:600;">${data.tournament}</td>
+              </tr>` : ''}
+              <tr>
+                <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">📍</td>
+                <td style="padding:7px 0;font-size:14px;color:#334155;">${data.venue}</td>
+              </tr>
+              <tr>
+                <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">📅</td>
+                <td style="padding:7px 0;font-size:14px;color:#334155;">
+                  ${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${data.matchTime}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">🏏</td>
+                <td style="padding:7px 0;font-size:14px;color:#334155;">${data.matchType}</td>
+              </tr>
+            </table>
+
+            ${badges ? `<div style="margin-top:14px;">${badges}</div>` : ''}
+            ${data.notes ? `<div style="margin-top:16px;background:#f8fafc;border-left:3px solid #93c5fd;padding:10px 14px;border-radius:0 8px 8px 0;">
+              <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;">${data.notes.replace(/\n/g,'<br>')}</p>
+            </div>` : ''}
+
+            <div style="margin-top:24px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;">
+              <p style="margin:0;font-size:14px;color:#1e40af;font-weight:600;">✅ Please update your availability</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#3b82f6;line-height:1.5;">
+                Log in to the Skyhawks portal and mark your availability for this match so the selectors can plan the squad.
+              </p>
+            </div>
+
+            <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 16px;">
+            <p style="margin:0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendMatchScheduledEmail(
+  recipients: string[],
+  data: MatchNotificationData,
+  cc?: string,
+): Promise<{ sent: number; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — skipping match notification email');
+    return { sent: 0, error: 'Email not configured' };
+  }
+  if (recipients.length === 0) return { sent: 0 };
+
+  const subject = `Match Scheduled: ${data.matchTitle} vs ${data.opponent}`;
+  const html    = buildMatchNotificationHtml(data);
+
+  try {
+    const batchSize = 50;
+    let sent = 0;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      await resend.emails.send({ from: FROM, to: batch, subject, html, ...(cc ? { cc: [cc] } : {}) });
+      sent += batch.length;
+    }
+    return { sent };
+  } catch (err: any) {
+    console.error('Resend error (match notification):', err);
+    return { sent: 0, error: err.message };
+  }
+}
+
 export interface AnnouncementEmailData {
   matchTitle: string;
   opponent: string;
@@ -114,7 +235,8 @@ function buildHtml(data: AnnouncementEmailData): string {
 
 export async function sendAnnouncementEmails(
   recipients: string[],
-  data: AnnouncementEmailData
+  data: AnnouncementEmailData,
+  cc?: string,
 ): Promise<{ sent: number; error?: string }> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping email send');
@@ -133,6 +255,7 @@ export async function sendAnnouncementEmails(
         to: batch,
         subject: `Team Announcement: ${data.matchTitle} vs ${data.opponent}`,
         html: buildHtml(data),
+        ...(cc ? { cc: [cc] } : {}),
       });
       sent += batch.length;
     }
@@ -152,6 +275,7 @@ export async function sendCustomAnnouncementEmail(
   sentByName: string,
   imageUrl?: string | null,
   imagePosition: 'above' | 'below' = 'below',
+  cc?: string,
 ): Promise<{ sent: number; error?: string }> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping custom announcement email');
@@ -205,7 +329,7 @@ export async function sendCustomAnnouncementEmail(
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
-      await resend.emails.send({ from: FROM, to: batch, subject, html });
+      await resend.emails.send({ from: FROM, to: batch, subject, html, ...(cc ? { cc: [cc] } : {}) });
       sent += batch.length;
     }
     return { sent };
@@ -223,6 +347,7 @@ export async function sendWelcomeEmail(
   year: number,
   feeAmount?: number | null,
   feeCurrency = 'SGD',
+  cc?: string,
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping welcome email'); return; }
 
@@ -278,7 +403,7 @@ export async function sendWelcomeEmail(
   </table>
 </body></html>`;
 
-  await resend.emails.send({ from: FROM, to, subject: `Welcome to Skyhawks Cricket Club, ${name}!`, html });
+  await resend.emails.send({ from: FROM, to, subject: `Welcome to Skyhawks Cricket Club, ${name}!`, html, ...(cc ? { cc: [cc] } : {}) });
 }
 
 export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string): Promise<void> {
