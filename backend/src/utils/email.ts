@@ -1,7 +1,8 @@
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
+const FROM      = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
+const FROM_ADDR = 'announcements@skyhawkscricketclub.com'; // used as `to` in BCC bulk sends
 
 // ── Match scheduled notification email ────────────────────────────────────────
 
@@ -119,11 +120,20 @@ export async function sendMatchScheduledEmail(
   const html    = buildMatchNotificationHtml(data);
 
   try {
+    // BCC approach: one SMTP transaction per batch instead of one per recipient.
+    // All recipients see only their own address; prevents Gmail rate limiting.
     const batchSize = 50;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
-      await resend.emails.send({ from: FROM, to: batch, subject, html, ...(cc ? { cc: [cc] } : {}) });
+      await resend.emails.send({
+        from: FROM,
+        to:   [FROM_ADDR],   // send to self
+        bcc:  batch,         // all recipients hidden from each other
+        subject,
+        html,
+        ...(cc ? { cc: [cc] } : {}),
+      });
       sent += batch.length;
     }
     return { sent };
@@ -254,14 +264,15 @@ export async function sendAnnouncementEmails(
   if (recipients.length === 0) return { sent: 0 };
 
   try {
-    // Resend free tier: send in batches of 50 to stay within rate limits
+    // BCC approach: one SMTP transaction per batch instead of one per recipient.
     const batchSize = 50;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
       await resend.emails.send({
         from: FROM,
-        to: batch,
+        to:   [FROM_ADDR],   // send to self
+        bcc:  batch,         // all recipients hidden from each other
         subject: `Team Announcement: ${data.matchTitle} vs ${data.opponent}`,
         html: buildHtml(data),
         ...(cc ? { cc: [cc] } : {}),
@@ -334,11 +345,19 @@ export async function sendCustomAnnouncementEmail(
 </body></html>`;
 
   try {
+    // BCC approach: one SMTP transaction per batch instead of one per recipient.
     const batchSize = 50;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
-      await resend.emails.send({ from: FROM, to: batch, subject, html, ...(cc ? { cc: [cc] } : {}) });
+      await resend.emails.send({
+        from: FROM,
+        to:   [FROM_ADDR],   // send to self
+        bcc:  batch,         // all recipients hidden from each other
+        subject,
+        html,
+        ...(cc ? { cc: [cc] } : {}),
+      });
       sent += batch.length;
     }
     return { sent };
