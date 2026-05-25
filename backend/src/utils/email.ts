@@ -12,6 +12,7 @@ export interface MatchNotificationData {
   matchDate: string;
   matchTime: string;
   matchType: string;
+  isReminder?: boolean;   // true → "Availability Reminder" header instead of "Match Scheduled"
   ballType?: string;
   attire?: string;
   matchFee?: number | null;
@@ -40,7 +41,7 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
         <tr>
           <td style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:32px 32px 24px;text-align:center;">
             <p style="margin:0 0 4px;color:#93c5fd;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Skyhawks Cricket Club</p>
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">📅 Match Scheduled</h1>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">${data.isReminder ? '🔔 Availability Reminder' : '📅 Match Scheduled'}</h1>
           </td>
         </tr>
 
@@ -77,10 +78,16 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
             </div>` : ''}
 
             <div style="margin-top:24px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;">
-              <p style="margin:0;font-size:14px;color:#1e40af;font-weight:600;">✅ Please update your availability</p>
-              <p style="margin:6px 0 0;font-size:13px;color:#3b82f6;line-height:1.5;">
-                Log in to the Skyhawks portal and mark your availability for this match so the selectors can plan the squad.
-              </p>
+              ${data.isReminder
+                ? `<p style="margin:0;font-size:14px;color:#1e40af;font-weight:600;">⏰ You haven't responded yet!</p>
+                   <p style="margin:6px 0 0;font-size:13px;color:#3b82f6;line-height:1.5;">
+                     Please log in to the Skyhawks portal and mark your availability so the selectors can finalise the squad.
+                   </p>`
+                : `<p style="margin:0;font-size:14px;color:#1e40af;font-weight:600;">✅ Please update your availability</p>
+                   <p style="margin:6px 0 0;font-size:13px;color:#3b82f6;line-height:1.5;">
+                     Log in to the Skyhawks portal and mark your availability for this match so the selectors can plan the squad.
+                   </p>`
+              }
             </div>
 
             <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 16px;">
@@ -106,7 +113,9 @@ export async function sendMatchScheduledEmail(
   }
   if (recipients.length === 0) return { sent: 0 };
 
-  const subject = `Match Scheduled: ${data.matchTitle} vs ${data.opponent}`;
+  const subject = data.isReminder
+    ? `Availability Reminder: ${data.matchTitle} vs ${data.opponent}`
+    : `Match Scheduled: ${data.matchTitle} vs ${data.opponent}`;
   const html    = buildMatchNotificationHtml(data);
 
   try {
