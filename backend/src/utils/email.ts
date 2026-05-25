@@ -1,8 +1,28 @@
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM      = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
-const FROM_ADDR = 'announcements@skyhawkscricketclub.com'; // used as `to` in BCC bulk sends
+const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
+
+/**
+ * Build the `to` / `bcc` fields for a bulk BCC send.
+ *
+ * Strategy:
+ *  - If the club contact email is available, use it as `to` — the admin gets
+ *    a real copy in their inbox and no fake address is needed.
+ *  - Otherwise fall back to the first recipient in the batch as `to`, and
+ *    put the remaining recipients in `bcc`.
+ *
+ * Either way, every member receives exactly one copy via bcc (or to for
+ * the fallback primary), and no recipient can see who else was included.
+ */
+function bulkAddressing(batch: string[], clubEmail?: string): { to: string[]; bcc: string[] } {
+  if (clubEmail) {
+    return { to: [clubEmail], bcc: batch };
+  }
+  // No club email configured — use first member as `to`, rest as bcc
+  const [first, ...rest] = batch;
+  return { to: [first], bcc: rest };
+}
 
 // ── Match scheduled notification email ────────────────────────────────────────
 
@@ -120,20 +140,14 @@ export async function sendMatchScheduledEmail(
   const html    = buildMatchNotificationHtml(data);
 
   try {
-    // BCC approach: one SMTP transaction per batch instead of one per recipient.
-    // All recipients see only their own address; prevents Gmail rate limiting.
+    // BCC bulk send — one SMTP transaction per batch.
+    // Club contact email (cc) becomes `to` so admin gets a real inbox copy.
     const batchSize = 50;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
-      await resend.emails.send({
-        from: FROM,
-        to:   [FROM_ADDR],   // send to self
-        bcc:  batch,         // all recipients hidden from each other
-        subject,
-        html,
-        ...(cc ? { cc: [cc] } : {}),
-      });
+      const { to, bcc } = bulkAddressing(batch, cc);
+      await resend.emails.send({ from: FROM, to, bcc, subject, html });
       sent += batch.length;
     }
     return { sent };
@@ -264,18 +278,16 @@ export async function sendAnnouncementEmails(
   if (recipients.length === 0) return { sent: 0 };
 
   try {
-    // BCC approach: one SMTP transaction per batch instead of one per recipient.
+    // BCC bulk send — one SMTP transaction per batch.
     const batchSize = 50;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
+      const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({
-        from: FROM,
-        to:   [FROM_ADDR],   // send to self
-        bcc:  batch,         // all recipients hidden from each other
+        from: FROM, to, bcc,
         subject: `Team Announcement: ${data.matchTitle} vs ${data.opponent}`,
         html: buildHtml(data),
-        ...(cc ? { cc: [cc] } : {}),
       });
       sent += batch.length;
     }
@@ -345,19 +357,13 @@ export async function sendCustomAnnouncementEmail(
 </body></html>`;
 
   try {
-    // BCC approach: one SMTP transaction per batch instead of one per recipient.
+    // BCC bulk send — one SMTP transaction per batch.
     const batchSize = 50;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
       const batch = recipients.slice(i, i + batchSize);
-      await resend.emails.send({
-        from: FROM,
-        to:   [FROM_ADDR],   // send to self
-        bcc:  batch,         // all recipients hidden from each other
-        subject,
-        html,
-        ...(cc ? { cc: [cc] } : {}),
-      });
+      const { to, bcc } = bulkAddressing(batch, cc);
+      await resend.emails.send({ from: FROM, to, bcc, subject, html });
       sent += batch.length;
     }
     return { sent };
