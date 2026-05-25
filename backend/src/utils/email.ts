@@ -17,7 +17,10 @@ const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
  */
 function bulkAddressing(batch: string[], clubEmail?: string): { to: string[]; bcc: string[] } {
   if (clubEmail) {
-    return { to: [clubEmail], bcc: batch };
+    // Filter the club email out of the batch so it doesn't receive a duplicate
+    // copy via BCC on top of the copy it already receives as the `to` address.
+    const filtered = batch.filter(e => e.toLowerCase() !== clubEmail.toLowerCase());
+    return { to: [clubEmail], bcc: filtered };
   }
   // No club email configured — use first member as `to`, rest as bcc
   const [first, ...rest] = batch;
@@ -148,7 +151,7 @@ export async function sendMatchScheduledEmail(
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
-      sent += batch.length;
+      sent += to.length + bcc.length;
     }
     return { sent };
   } catch (err: any) {
@@ -289,7 +292,7 @@ export async function sendAnnouncementEmails(
         subject: `Team Announcement: ${data.matchTitle} vs ${data.opponent}`,
         html: buildHtml(data),
       });
-      sent += batch.length;
+      sent += to.length + bcc.length;
     }
     return { sent };
   } catch (err: any) {
@@ -364,7 +367,7 @@ export async function sendCustomAnnouncementEmail(
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
-      sent += batch.length;
+      sent += to.length + bcc.length;
     }
     return { sent };
   } catch (err: any) {
