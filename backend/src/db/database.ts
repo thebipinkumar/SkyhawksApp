@@ -285,6 +285,22 @@ export async function initDb(): Promise<void> {
     await db.execute('ALTER TABLE matches_new RENAME TO matches');
   }
 
+  // Migrate: guest/custom players in team selection (non-members)
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS team_selection_guests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      match_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      role_in_match TEXT NOT NULL DEFAULT '',
+      is_captain INTEGER NOT NULL DEFAULT 0,
+      is_vice_captain INTEGER NOT NULL DEFAULT 0,
+      selected_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (match_id) REFERENCES matches(id),
+      FOREIGN KEY (selected_by) REFERENCES users(id)
+    )`);
+  } catch { /* exists */ }
+
   // Migrate: populate user_roles from existing role column (run once)
   const roleCount = await db.execute('SELECT COUNT(*) as n FROM user_roles');
   const userCount = await db.execute(`SELECT COUNT(*) as n FROM users WHERE status = 'active'`);

@@ -6,17 +6,47 @@ import { sendAnnouncementEmails } from '../utils/email.js';
 const router = Router();
 
 router.post('/matches/:matchId/select', authenticate, authorize('selector', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { players } = req.body;
-  if (!Array.isArray(players) || players.length === 0) { res.status(400).json({ error: 'Players array is required' }); return; }
+  const { players, guests } = req.body;
+  const hasPlayers = Array.isArray(players) && players.length > 0;
+  const hasGuests  = Array.isArray(guests)  && guests.length  > 0;
+  if (!hasPlayers && !hasGuests) { res.status(400).json({ error: 'Select at least one player or guest' }); return; }
+
   const db = getDb();
   if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.matchId] })).rows[0]) { res.status(404).json({ error: 'Match not found' }); return; }
 
-  await db.execute({ sql: 'DELETE FROM team_selections WHERE match_id = ?', args: [req.params.matchId] });
-  for (const p of players) {
-    await db.execute({ sql: `INSERT INTO team_selections (match_id,player_id,role_in_match,is_captain,is_vice_captain,selected_by) VALUES (?,?,?,?,?,?)`, args: [req.params.matchId, p.player_id, p.role_in_match || 'player', p.is_captain ? 1 : 0, p.is_vice_captain ? 1 : 0, req.user!.id] });
+  // Replace all existing selections and guests for this match
+  await db.execute({ sql: 'DELETE FROM team_selections       WHERE match_id = ?', args: [req.params.matchId] });
+  await db.execute({ sql: 'DELETE FROM team_selection_guests WHERE match_id = ?', args: [req.params.matchId] });
+
+  for (const p of (players || [])) {
+    await db.execute({
+      sql: `INSERT INTO team_selections (match_id,player_id,role_in_match,is_captain,is_vice_captain,selected_by) VALUES (?,?,?,?,?,?)`,
+      args: [req.params.matchId, p.player_id, p.role_in_match || '', p.is_captain ? 1 : 0, p.is_vice_captain ? 1 : 0, req.user!.id],
+    });
   }
-  const selections = rows((await db.execute({ sql: `SELECT ts.*, u.name as player_name, u.email as player_email FROM team_selections ts JOIN users u ON ts.player_id = u.id WHERE ts.match_id = ?`, args: [req.params.matchId] })).rows);
-  res.status(201).json(selections);
+  for (const g of (guests || [])) {
+    if (!g.name?.trim()) continue;
+    await db.execute({
+      sql: `INSERT INTO team_selection_guests (match_id,name,role_in_match,is_captain,is_vice_captain,selected_by) VALUES (?,?,?,?,?,?)`,
+      args: [req.params.matchId, g.name.trim(), g.role_in_match || '', g.is_captain ? 1 : 0, g.is_vice_captain ? 1 : 0, req.user!.id],
+    });
+  }
+
+  // Return merged list
+  const memberSels = rows((await db.execute({
+    sql: `SELECT ts.id, ts.match_id, ts.player_id, ts.role_in_match, ts.is_captain, ts.is_vice_captain,
+                 u.name as player_name, u.email as player_email, 0 as is_guest, NULL as guest_id
+          FROM team_selections ts JOIN users u ON ts.player_id = u.id WHERE ts.match_id = ?`,
+    args: [req.params.matchId],
+  })).rows);
+  const guestSels = rows((await db.execute({
+    sql: `SELECT id as guest_id, match_id, NULL as player_id, role_in_match, is_captain, is_vice_captain,
+                 name as player_name, NULL as player_email, 1 as is_guest
+          FROM team_selection_guests WHERE match_id = ?`,
+    args: [req.params.matchId],
+  })).rows);
+
+  res.status(201).json([...memberSels, ...guestSels]);
 });
 
 router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'admin'), async (req: AuthRequest, res: Response) => {
@@ -27,7 +57,18 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
   })).rows[0]);
   if (!match) { res.status(404).json({ error: 'Match not found' }); return; }
 
-  const selections = rows((await db.execute({ sql: `SELECT ts.*, u.name as player_name, u.email as player_email FROM team_selections ts JOIN users u ON ts.player_id = u.id WHERE ts.match_id = ? ORDER BY ts.is_captain DESC, ts.is_vice_captain DESC, u.name`, args: [req.params.matchId] })).rows);
+  const memberSels = rows((await db.execute({
+    sql: `SELECT ts.role_in_match, ts.is_captain, ts.is_vice_captain, u.name as player_name
+          FROM team_selections ts JOIN users u ON ts.player_id = u.id
+          WHERE ts.match_id = ? ORDER BY ts.is_captain DESC, ts.is_vice_captain DESC, u.name`,
+    args: [req.params.matchId],
+  })).rows);
+  const guestSels = rows((await db.execute({
+    sql: `SELECT role_in_match, is_captain, is_vice_captain, name as player_name
+          FROM team_selection_guests WHERE match_id = ? ORDER BY is_captain DESC, is_vice_captain DESC, name`,
+    args: [req.params.matchId],
+  })).rows);
+  const selections = [...memberSels, ...guestSels];
   if (selections.length === 0) { res.status(400).json({ error: 'No players selected for this match' }); return; }
 
   const allMembers = rows((await db.execute(`SELECT email FROM users WHERE status = 'active'`)).rows);

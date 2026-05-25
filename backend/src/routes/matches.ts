@@ -55,13 +55,24 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   })).rows[0]);
   if (!match) { res.status(404).json({ error: 'Match not found' }); return; }
 
-  const team = rows((await db.execute({
-    sql: `SELECT ts.*, u.name as player_name, u.email as player_email, u.avatar_url as player_avatar
+  const memberTeam = rows((await db.execute({
+    sql: `SELECT ts.id, ts.match_id, ts.player_id, ts.role_in_match, ts.is_captain, ts.is_vice_captain,
+                 u.name as player_name, u.email as player_email, u.avatar_url as player_avatar,
+                 0 as is_guest, NULL as guest_id
           FROM team_selections ts JOIN users u ON ts.player_id = u.id
           WHERE ts.match_id = ?
           ORDER BY ts.is_captain DESC, ts.is_vice_captain DESC, u.name`,
     args: [req.params.id],
   })).rows);
+  const guestTeam = rows((await db.execute({
+    sql: `SELECT id as guest_id, match_id, NULL as player_id, role_in_match, is_captain, is_vice_captain,
+                 name as player_name, NULL as player_email, NULL as player_avatar,
+                 1 as is_guest
+          FROM team_selection_guests WHERE match_id = ?
+          ORDER BY is_captain DESC, is_vice_captain DESC, name`,
+    args: [req.params.id],
+  })).rows);
+  const team = [...memberTeam, ...guestTeam];
   res.json({ ...match, team });
 });
 
@@ -186,10 +197,11 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
   if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]) {
     res.status(404).json({ error: 'Match not found' }); return;
   }
-  await db.execute({ sql: 'DELETE FROM announcements WHERE match_id = ?', args: [req.params.id] });
-  await db.execute({ sql: 'DELETE FROM team_selections WHERE match_id = ?', args: [req.params.id] });
-  await db.execute({ sql: 'DELETE FROM match_availability WHERE match_id = ?', args: [req.params.id] });
-  await db.execute({ sql: 'DELETE FROM matches WHERE id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM announcements            WHERE match_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM team_selections           WHERE match_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM team_selection_guests     WHERE match_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM match_availability        WHERE match_id = ?', args: [req.params.id] });
+  await db.execute({ sql: 'DELETE FROM matches                   WHERE id = ?',       args: [req.params.id] });
   res.json({ message: 'Match deleted' });
 });
 
