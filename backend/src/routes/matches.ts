@@ -77,15 +77,16 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 router.post('/', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { title, opponent, venue, match_date, match_time, match_type, notes, ball_type, attire, match_fee, scorecard_url, tournament_id, notify_members } = req.body;
+  const { title, opponent, venue, venue_address, venue_maps_url, match_date, match_time, match_type, notes, ball_type, attire, match_fee, scorecard_url, tournament_id, notify_members } = req.body;
   if (!title || !opponent || !venue || !match_date || !match_time) {
     res.status(400).json({ error: 'Title, opponent, venue, date and time are required' }); return;
   }
   const db = getDb();
   const result = await db.execute({
-    sql: `INSERT INTO matches (title,opponent,venue,match_date,match_time,match_type,notes,ball_type,attire,match_fee,scorecard_url,tournament_id,created_by)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    args: [title, opponent, venue, match_date, match_time, match_type || 'T20', notes || null,
+    sql: `INSERT INTO matches (title,opponent,venue,venue_address,venue_maps_url,match_date,match_time,match_type,notes,ball_type,attire,match_fee,scorecard_url,tournament_id,created_by)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [title, opponent, venue, venue_address || null, venue_maps_url || null,
+           match_date, match_time, match_type || 'T20', notes || null,
            ball_type || 'White', attire || 'Colored', match_fee ?? null, scorecard_url || null,
            tournament_id || null, req.user!.id],
   });
@@ -106,7 +107,8 @@ router.post('/', authenticate, authorize('manager', 'admin'), async (req: AuthRe
         const tName   = tournamentRes ? (row(tournamentRes.rows[0])?.name as string | null) : null;
 
         const data: MatchNotificationData = {
-          matchTitle: title, opponent, venue, matchDate: match_date, matchTime: match_time,
+          matchTitle: title, opponent, venue, venueAddress: venue_address || null,
+          venueMapsUrl: venue_maps_url || null, matchDate: match_date, matchTime: match_time,
           matchType: match_type || 'T20', ballType: ball_type, attire, matchFee: match_fee ?? null,
           tournament: tName, notes: notes || null,
         };
@@ -158,18 +160,20 @@ router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (r
   }
 
   const data: MatchNotificationData = {
-    matchTitle:  match.title as string,
-    opponent:    match.opponent as string,
-    venue:       match.venue as string,
-    matchDate:   match.match_date as string,
-    matchTime:   match.match_time as string,
-    matchType:   match.match_type as string,
-    isReminder:  true,   // re-trigger → send as availability reminder
-    ballType:    match.ball_type as string | undefined,
-    attire:      match.attire as string | undefined,
-    matchFee:    match.match_fee as number | null,
-    tournament:  match.tournament_name as string | null,
-    notes:       match.notes as string | null,
+    matchTitle:   match.title as string,
+    opponent:     match.opponent as string,
+    venue:        match.venue as string,
+    venueAddress: match.venue_address as string | null,
+    venueMapsUrl: match.venue_maps_url as string | null,
+    matchDate:    match.match_date as string,
+    matchTime:    match.match_time as string,
+    matchType:    match.match_type as string,
+    isReminder:   true,   // re-trigger → send as availability reminder
+    ballType:     match.ball_type as string | undefined,
+    attire:       match.attire as string | undefined,
+    matchFee:     match.match_fee as number | null,
+    tournament:   match.tournament_name as string | null,
+    notes:        match.notes as string | null,
   };
 
   const result = await sendMatchScheduledEmail(emails, data, cc);
@@ -178,14 +182,15 @@ router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (r
 });
 
 router.put('/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {
-  const { title, opponent, venue, match_date, match_time, match_type, status, result: matchResult, notes, ball_type, attire, match_fee, scorecard_url, tournament_id } = req.body;
+  const { title, opponent, venue, venue_address, venue_maps_url, match_date, match_time, match_type, status, result: matchResult, notes, ball_type, attire, match_fee, scorecard_url, tournament_id } = req.body;
   const db = getDb();
   if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.id] })).rows[0]) {
     res.status(404).json({ error: 'Match not found' }); return;
   }
   await db.execute({
-    sql: `UPDATE matches SET title=?,opponent=?,venue=?,match_date=?,match_time=?,match_type=?,status=?,result=?,notes=?,ball_type=?,attire=?,match_fee=?,scorecard_url=?,tournament_id=? WHERE id=?`,
-    args: [title, opponent, venue, match_date, match_time, match_type, status, matchResult || null,
+    sql: `UPDATE matches SET title=?,opponent=?,venue=?,venue_address=?,venue_maps_url=?,match_date=?,match_time=?,match_type=?,status=?,result=?,notes=?,ball_type=?,attire=?,match_fee=?,scorecard_url=?,tournament_id=? WHERE id=?`,
+    args: [title, opponent, venue, venue_address || null, venue_maps_url || null,
+           match_date, match_time, match_type, status, matchResult || null,
            notes || null, ball_type || 'White', attire || 'Colored', match_fee ?? null,
            scorecard_url || null, tournament_id || null, req.params.id],
   });

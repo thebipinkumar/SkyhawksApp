@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skyhawks Cricket Club</title>
+    <!-- Google Maps JS API — loaded only when VITE_GOOGLE_MAPS_API_KEY is set at build time -->
+    <script>
+      (function () {
+        var key = "%VITE_GOOGLE_MAPS_API_KEY%";
+        if (key) {
+          var s = document.createElement("script");
+          s.src = "https://maps.googleapis.com/maps/api/js?key=" + key + "&libraries=places&loading=async";
+          s.async = true;
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

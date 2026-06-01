@@ -6,6 +6,7 @@ import {
   Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp,
   CheckCircle, XCircle, HelpCircle, MinusCircle, ExternalLink, Trophy, Users, Bell,
 } from 'lucide-react';
+import VenueAutocomplete from '../components/VenueAutocomplete';
 
 const MATCH_TYPES   = ['T20', 'T25', 'T30'];
 const STATUS_OPTIONS = ['scheduled', 'completed', 'cancelled'];
@@ -14,7 +15,8 @@ const ATTIRE_OPTIONS = ['White', 'Colored'];
 const FORMATS       = ['T20', 'T25', 'T30', 'ODI', 'Test', 'Other'];
 
 const emptyMatch = {
-  title: '', opponent: '', venue: '', match_date: '', match_time: '',
+  title: '', opponent: '', venue: '', venue_address: '', venue_maps_url: '',
+  match_date: '', match_time: '',
   match_type: 'T20', status: 'scheduled', result: '', notes: '',
   ball_type: 'White', attire: 'Colored', match_fee: '', scorecard_url: '',
   tournament_id: '', notify_members: true,
@@ -120,6 +122,8 @@ export default function Matches() {
   const openEdit = (m: Match) => {
     setForm({
       title: m.title, opponent: m.opponent, venue: m.venue,
+      venue_address: (m as any).venue_address || '',
+      venue_maps_url: (m as any).venue_maps_url || '',
       match_date: m.match_date, match_time: m.match_time,
       match_type: m.match_type, status: m.status, result: m.result || '', notes: m.notes || '',
       ball_type: m.ball_type || 'White', attire: m.attire || 'Colored',
@@ -482,7 +486,17 @@ export default function Matches() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Venue *</label>
-                <input className="input-field" value={form.venue} onChange={e => setForm(f => ({...f, venue: e.target.value}))} required placeholder="Ground name" />
+                <VenueAutocomplete
+                  value={form.venue}
+                  onChange={v => setForm(f => ({ ...f, venue: v, venue_address: '', venue_maps_url: '' }))}
+                  onPlaceSelect={p => setForm(f => ({ ...f, venue: p.venue, venue_address: p.venue_address || '', venue_maps_url: p.venue_maps_url || '' }))}
+                  placeholder="Ground name"
+                  required
+                  className="input-field"
+                />
+                {form.venue_address && (
+                  <p className="mt-1 text-xs text-gray-500">{form.venue_address}</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

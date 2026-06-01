@@ -256,6 +256,10 @@ export async function initDb(): Promise<void> {
   try { await db.execute(`ALTER TABLE matches ADD COLUMN tournament_id INTEGER REFERENCES tournaments(id)`); } catch { /* exists */ }
   try { await db.execute(`ALTER TABLE matches ADD COLUMN is_announced INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
 
+  // Migrate: Google Maps venue fields
+  try { await db.execute(`ALTER TABLE matches ADD COLUMN venue_address TEXT`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE matches ADD COLUMN venue_maps_url TEXT`); } catch { /* exists */ }
+
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {
     await db.execute('SELECT ball_type FROM matches LIMIT 1');

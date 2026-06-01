@@ -33,6 +33,8 @@ export interface MatchNotificationData {
   matchTitle: string;
   opponent: string;
   venue: string;
+  venueAddress?: string | null;
+  venueMapsUrl?: string | null;
   matchDate: string;
   matchTime: string;
   matchType: string;
@@ -82,7 +84,10 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
               </tr>` : ''}
               <tr>
                 <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">📍</td>
-                <td style="padding:7px 0;font-size:14px;color:#334155;">${data.venue}</td>
+                <td style="padding:7px 0;font-size:14px;color:#334155;">
+                  ${data.venue}
+                  ${data.venueAddress ? `<br><span style="font-size:12px;color:#94a3b8;">${data.venueAddress}</span>` : ''}
+                </td>
               </tr>
               <tr>
                 <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">📅</td>
@@ -96,6 +101,12 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
               </tr>
             </table>
 
+            ${data.venueMapsUrl ? `<div style="margin-top:12px;">
+              <a href="${data.venueMapsUrl}" target="_blank" rel="noopener noreferrer"
+                 style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;text-decoration:none;">
+                📍 Open in Google Maps
+              </a>
+            </div>` : ''}
             ${badges ? `<div style="margin-top:14px;">${badges}</div>` : ''}
             ${data.notes ? `<div style="margin-top:16px;background:#f8fafc;border-left:3px solid #93c5fd;padding:10px 14px;border-radius:0 8px 8px 0;">
               <p style="margin:0;font-size:13px;color:#475569;line-height:1.6;">${data.notes.replace(/\n/g,'<br>')}</p>
@@ -164,6 +175,8 @@ export interface AnnouncementEmailData {
   matchTitle: string;
   opponent: string;
   venue: string;
+  venueAddress?: string | null;
+  venueMapsUrl?: string | null;
   matchDate: string;
   matchTime: string;
   matchType: string;
@@ -220,7 +233,10 @@ function buildHtml(data: AnnouncementEmailData): string {
             <table cellpadding="0" cellspacing="0" width="100%">
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">📍</td>
-                <td style="padding:6px 0;font-size:14px;color:#334155;">${data.venue}</td>
+                <td style="padding:6px 0;font-size:14px;color:#334155;">
+                  ${data.venue}
+                  ${data.venueAddress ? `<br><span style="font-size:12px;color:#94a3b8;">${data.venueAddress}</span>` : ''}
+                </td>
               </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">📅</td>
@@ -235,6 +251,12 @@ function buildHtml(data: AnnouncementEmailData): string {
                 <td style="padding:6px 0;font-size:14px;color:#334155;font-weight:600;">${data.tournament}</td>
               </tr>` : ''}
             </table>
+            ${data.venueMapsUrl ? `<div style="margin-top:10px;">
+              <a href="${data.venueMapsUrl}" target="_blank" rel="noopener noreferrer"
+                 style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e2e8f0;color:#1d4ed8;font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;text-decoration:none;">
+                📍 Open in Google Maps
+              </a>
+            </div>` : ''}
             ${extraBadges ? `<div style="margin-top:12px;">${extraBadges}</div>` : ''}
           </td>
         </tr>

@@ -78,16 +78,18 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
   const clubCc = settingsRow?.contact_email as string | undefined;
 
   const { sent, error } = await sendAnnouncementEmails(emailList, {
-    matchTitle:  match.title,
-    opponent:    match.opponent,
-    venue:       match.venue,
-    matchDate:   match.match_date,
-    matchTime:   match.match_time,
-    matchType:   match.match_type,
-    ballType:    match.ball_type,
-    attire:      match.attire,
-    matchFee:    match.match_fee,
-    tournament:  match.tournament_name || undefined,
+    matchTitle:   match.title,
+    opponent:     match.opponent,
+    venue:        match.venue,
+    venueAddress: match.venue_address as string | null,
+    venueMapsUrl: match.venue_maps_url as string | null,
+    matchDate:    match.match_date,
+    matchTime:    match.match_time,
+    matchType:    match.match_type,
+    ballType:     match.ball_type,
+    attire:       match.attire,
+    matchFee:     match.match_fee,
+    tournament:   match.tournament_name || undefined,
     squad: selections.map((s: any) => ({
       name:          s.player_name,
       role:          s.role_in_match,

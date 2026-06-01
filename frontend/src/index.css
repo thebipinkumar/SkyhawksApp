@@ -41,6 +41,28 @@
   }
 }
 
+/* Google Maps Places autocomplete dropdown — must render above modal overlays (z-50 = 50) */
+.pac-container {
+  z-index: 1100 !important;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e2e8f0;
+  font-family: inherit;
+  margin-top: 2px;
+}
+.pac-item {
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pac-item:hover {
+  background: #f1f5f9;
+}
+.pac-item-query {
+  font-size: 14px;
+  color: #0f172a;
+}
+
 @layer utilities {
   .animate-pulse-border {
     animation: pulse-border 1.5s ease-in-out infinite;
