@@ -286,7 +286,22 @@ export default function Matches() {
                     </div>
                     <p className="text-gray-700 font-medium">vs <span className="text-blue-700">{match.opponent}</span></p>
                     <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
-                      <span className="flex items-center gap-1"><MapPin size={14} />{match.venue}</span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={14} />
+                        {match.venue}
+                        {(match as any).venue_maps_url && (
+                          <a
+                            href={(match as any).venue_maps_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-1 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ExternalLink size={12} />
+                            Map
+                          </a>
+                        )}
+                      </span>
                       <span className="flex items-center gap-1"><Calendar size={14} />{formatDate(match.match_date)}</span>
                       <span className="flex items-center gap-1"><Clock size={14} />{match.match_time}</span>
                     </div>
