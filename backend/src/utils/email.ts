@@ -15,6 +15,9 @@ const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
  * Either way, every member receives exactly one copy via bcc (or to for
  * the fallback primary), and no recipient can see who else was included.
  */
+/** Small pause between batches so Gmail doesn't flag rapid-fire SMTP connections */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 function bulkAddressing(batch: string[], clubEmail?: string): { to: string[]; bcc: string[] } {
   if (clubEmail) {
     // Filter the club email out of the batch so it doesn't receive a duplicate
@@ -155,10 +158,12 @@ export async function sendMatchScheduledEmail(
 
   try {
     // BCC bulk send — one SMTP transaction per batch.
-    // Club contact email (cc) becomes `to` so admin gets a real inbox copy.
-    const batchSize = 50;
+    // Batch size kept at 25 (down from 50) and a 2s pause between batches
+    // to avoid Gmail's 421-4.7.28 rate-limit on new sending domains.
+    const batchSize = 25;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
+      if (i > 0) await sleep(2000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
@@ -303,10 +308,11 @@ export async function sendAnnouncementEmails(
   if (recipients.length === 0) return { sent: 0 };
 
   try {
-    // BCC bulk send — one SMTP transaction per batch.
-    const batchSize = 50;
+    // BCC bulk send — 25 per batch with 2s pause between batches.
+    const batchSize = 25;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
+      if (i > 0) await sleep(2000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({
@@ -382,10 +388,11 @@ export async function sendCustomAnnouncementEmail(
 </body></html>`;
 
   try {
-    // BCC bulk send — one SMTP transaction per batch.
-    const batchSize = 50;
+    // BCC bulk send — 25 per batch with 2s pause between batches.
+    const batchSize = 25;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
+      if (i > 0) await sleep(2000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
