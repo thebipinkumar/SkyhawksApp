@@ -128,8 +128,12 @@ export default function VenueAutocomplete({
       onPlaceSelect({
         venue:         venueName,
         venue_address: place.formattedAddress ?? null,
+        // Use Google's official cross-platform URL format:
+        // query_place_id for precise place lookup + query (name) as readable fallback.
+        // This works on desktop browsers, mobile browsers, and the native Maps app
+        // on both iOS and Android — unlike the ?q=place_id: format which fails on mobile.
         venue_maps_url: place.id
-          ? `https://www.google.com/maps/place/?q=place_id:${place.id}`
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueName)}&query_place_id=${place.id}`
           : null,
       });
 
