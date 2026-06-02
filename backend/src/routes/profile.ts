@@ -13,7 +13,7 @@ const PROFILE_COLS = `id, name, email, role, phone, bio, avatar_url, batting_sty
   date_of_birth, jersey_number, jersey_label,
   whites_tshirt_size, whites_lower_size, whites_sleeve,
   colored_tshirt_size, colored_lower_size, colored_sleeve,
-  membership_start, membership_end`;
+  membership_start, membership_end, last_login`;
 
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   const user = row((await getDb().execute({ sql: `SELECT ${PROFILE_COLS} FROM users WHERE id = ?`, args: [req.user!.id] })).rows[0]);
