@@ -260,6 +260,9 @@ export async function initDb(): Promise<void> {
   try { await db.execute(`ALTER TABLE matches ADD COLUMN venue_address TEXT`); } catch { /* exists */ }
   try { await db.execute(`ALTER TABLE matches ADD COLUMN venue_maps_url TEXT`); } catch { /* exists */ }
 
+  // Migrate: last login tracking
+  try { await db.execute(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch { /* exists */ }
+
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {
     await db.execute('SELECT ball_type FROM matches LIMIT 1');

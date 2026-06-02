@@ -47,12 +47,18 @@ router.post('/login', async (req: Request, res: Response) => {
   const roles = userRoles.length > 0 ? userRoles : [user.role];
 
   const token = signToken({ id: user.id, email: user.email, roles, name: user.name });
+
+  // Record last login — non-blocking; a failure must not prevent the login response
+  try {
+    await db.execute({ sql: 'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', args: [user.id] });
+  } catch (err) { console.error('Failed to update last_login:', err); }
+
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, roles, avatar_url: user.avatar_url ?? null, membership_end: user.membership_end ?? null } });
 });
 
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   const db = getDb();
-  const user = row((await db.execute({ sql: 'SELECT id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at, membership_start, membership_end FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]);
+  const user = row((await db.execute({ sql: 'SELECT id, name, email, role, phone, bio, avatar_url, batting_style, bowling_style, created_at, membership_start, membership_end, last_login FROM users WHERE id = ?', args: [req.user!.id] })).rows[0]);
   const roleRows = await db.execute({ sql: 'SELECT role FROM user_roles WHERE user_id = ?', args: [req.user!.id] });
   const roles = rows(roleRows.rows).map(r => r.role as string);
   res.json({ ...user, roles: roles.length > 0 ? roles : [user.role] });

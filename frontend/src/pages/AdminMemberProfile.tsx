@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { User } from '../types';
 import { ArrowLeft, Save, Shield, UserCircle, Camera, Trash2, Upload } from 'lucide-react';
+import { formatLastLogin } from '../utils/formatters';
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
@@ -174,6 +175,7 @@ export default function AdminMemberProfile() {
               <span className={expired ? 'text-red-600 font-medium' : ''}>
                 Expires: {fmt(profile.membership_end)} {expired && '⚠ Expired'}
               </span>
+              <span>Last login: {formatLastLogin((profile as any).last_login)}</span>
             </div>
 
             {/* Photo action buttons */}

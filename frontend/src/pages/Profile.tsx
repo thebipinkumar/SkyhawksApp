@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { User } from '../types';
 import { Camera, Save, Trash2, User as UserIcon, Shield, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { formatLastLogin } from '../utils/formatters';
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
@@ -166,6 +167,10 @@ export default function Profile() {
             <div>
               <p className="text-xs text-gray-400">Member since</p>
               <p className="text-sm text-gray-700">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Last login</p>
+              <p className="text-sm text-gray-700">{formatLastLogin((profile as any)?.last_login)}</p>
             </div>
             {(profile as any)?.membership_end && (
               <div>

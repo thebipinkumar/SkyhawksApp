@@ -29,6 +29,7 @@ export interface User {
   created_at?: string;
   membership_start?: string | null;
   membership_end?: string | null;
+  last_login?: string | null;
 }
 
 export interface PendingUser {

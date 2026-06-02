@@ -16,7 +16,7 @@ const PROFILE_COLS = `id, name, email, role, phone, bio, avatar_url, batting_sty
   date_of_birth, jersey_number, jersey_label,
   whites_tshirt_size, whites_lower_size, whites_sleeve,
   colored_tshirt_size, colored_lower_size, colored_sleeve,
-  membership_start, membership_end`;
+  membership_start, membership_end, last_login`;
 
 const VALID_ROLES = ['player', 'manager', 'selector', 'admin'];
 const router = Router();
@@ -24,7 +24,7 @@ const router = Router();
 // Active members list — includes their roles array
 router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   const db = getDb();
-  const usersResult = await db.execute(`SELECT id, name, email, role, phone, avatar_url, created_at, membership_start, membership_end FROM users WHERE status = 'active' ORDER BY name`);
+  const usersResult = await db.execute(`SELECT id, name, email, role, phone, avatar_url, created_at, membership_start, membership_end, last_login FROM users WHERE status = 'active' ORDER BY name`);
   const userList = rows(usersResult.rows);
 
   // Fetch roles for all users in one query

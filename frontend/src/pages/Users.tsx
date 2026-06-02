@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { User, Role, PendingUser } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle, KeyRound, X, UserCog, CalendarClock } from 'lucide-react';
+import { formatLastLoginShort } from '../utils/formatters';
 
 const ROLES: Role[] = ['player', 'manager', 'selector', 'admin'];
 
@@ -226,6 +227,7 @@ export default function UsersPage() {
                           <span className="flex items-center gap-1"><Mail size={11} />{u.email}</span>
                           {u.phone && <span className="flex items-center gap-1"><Phone size={11} />{u.phone}</span>}
                           {u.created_at && <span className="flex items-center gap-1"><Calendar size={11} />Joined {fmt(u.created_at)}</span>}
+                          <span className="flex items-center gap-1"><Clock size={11} />Last seen {formatLastLoginShort(u.last_login)}</span>
                           {u.membership_end && (
                             <span className={`flex items-center gap-1 ${memberExpired(u) ? 'text-red-600 font-semibold' : 'text-green-700'}`}>
                               <CalendarClock size={11} />
