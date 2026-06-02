@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { User } from '../types';
 import { Camera, Save, Trash2, User as UserIcon, Shield, KeyRound, Eye, EyeOff } from 'lucide-react';
-import { formatLastLogin } from '../utils/formatters';
+import { formatLastLogin, formatDate, isExpiredSGT } from '../utils/formatters';
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
@@ -166,7 +166,7 @@ export default function Profile() {
           <div className="w-full border-t pt-3 text-left space-y-2">
             <div>
               <p className="text-xs text-gray-400">Member since</p>
-              <p className="text-sm text-gray-700">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day:'numeric', month:'long', year:'numeric' }) : '—'}</p>
+              <p className="text-sm text-gray-700">{formatDate(profile?.created_at)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-400">Last login</p>
@@ -175,8 +175,8 @@ export default function Profile() {
             {(profile as any)?.membership_end && (
               <div>
                 <p className="text-xs text-gray-400">Membership expires</p>
-                <p className={`text-sm font-medium ${new Date(new Date((profile as any).membership_end).toLocaleString('en-US', { timeZone: 'Asia/Singapore' })) < new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' })) ? 'text-red-600' : 'text-green-700'}`}>
-                  {new Date((profile as any).membership_end).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day:'numeric', month:'long', year:'numeric' })}
+                <p className={`text-sm font-medium ${isExpiredSGT((profile as any).membership_end) ? 'text-red-600' : 'text-green-700'}`}>
+                  {formatDate((profile as any).membership_end)}
                 </p>
               </div>
             )}

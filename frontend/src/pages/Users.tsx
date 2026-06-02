@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { User, Role, PendingUser } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle, KeyRound, X, UserCog, CalendarClock } from 'lucide-react';
-import { formatLastLoginShort } from '../utils/formatters';
+import { formatLastLoginShort, isExpiredSGT } from '../utils/formatters';
 
 const ROLES: Role[] = ['player', 'manager', 'selector', 'admin'];
 
@@ -85,7 +85,7 @@ export default function UsersPage() {
   });
 
   const fmt = (d?: string) => d
-    ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' })
+    ? new Date(d.includes('T') ? d : d.replace(' ', 'T') + 'Z').toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' })
     : '';
 
   const submitResetPw = async () => {
@@ -111,12 +111,7 @@ export default function UsersPage() {
     }
   };
 
-  const memberExpired = (u: User) => {
-    if (!u.membership_end) return false;
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
-    const exp = new Date(new Date(u.membership_end).toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
-    return exp < now;
-  };
+  const memberExpired = (u: User) => isExpiredSGT(u.membership_end);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">

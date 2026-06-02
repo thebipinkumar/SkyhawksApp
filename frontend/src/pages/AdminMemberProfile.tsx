@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { User } from '../types';
 import { ArrowLeft, Save, Shield, UserCircle, Camera, Trash2, Upload } from 'lucide-react';
-import { formatLastLogin } from '../utils/formatters';
+import { formatLastLogin, formatDate as fmtSGT, isExpiredSGT } from '../utils/formatters';
 
 const BATTING_STYLES = ['', 'Right-hand bat', 'Left-hand bat'];
 const BOWLING_STYLES = ['', 'Right-arm fast', 'Right-arm medium', 'Right-arm off-spin', 'Right-arm leg-spin', 'Left-arm fast', 'Left-arm medium', 'Left-arm spin', 'Does not bowl'];
@@ -16,17 +16,8 @@ const roleBadge: Record<string, string> = {
   selector: 'badge-selector', admin: 'badge-admin',
 };
 
-const SGT = 'Asia/Singapore';
-const fmt = (d?: string | null) => d
-  ? new Date(d).toLocaleDateString('en-GB', { timeZone: SGT, day: 'numeric', month: 'long', year: 'numeric' })
-  : '—';
-
-const isExpired = (d?: string | null) => {
-  if (!d) return false;
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: SGT }));
-  const exp = new Date(new Date(d).toLocaleString('en-US', { timeZone: SGT }));
-  return exp < now;
-};
+const fmt = (d?: string | null) => fmtSGT(d ?? undefined);
+const isExpired = (d?: string | null) => isExpiredSGT(d ?? undefined);
 
 export default function AdminMemberProfile() {
   const { id }   = useParams<{ id: string }>();
