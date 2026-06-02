@@ -18,6 +18,14 @@ const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
 /** Small pause between batches so Gmail doesn't flag rapid-fire SMTP connections */
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/** Convert 24-hour "HH:MM" to "H:MM AM/PM" for email clarity */
+function formatTime12h(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour   = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 function bulkAddressing(batch: string[], clubEmail?: string): { to: string[]; bcc: string[] } {
   if (clubEmail) {
     // Filter the club email out of the batch so it doesn't receive a duplicate
@@ -95,7 +103,7 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
               <tr>
                 <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">📅</td>
                 <td style="padding:7px 0;font-size:14px;color:#334155;">
-                  ${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${data.matchTime}
+                  ${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${formatTime12h(data.matchTime)}
                 </td>
               </tr>
               <tr>
@@ -245,7 +253,7 @@ function buildHtml(data: AnnouncementEmailData): string {
               </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">📅</td>
-                <td style="padding:6px 0;font-size:14px;color:#334155;">${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${data.matchTime}</td>
+                <td style="padding:6px 0;font-size:14px;color:#334155;">${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${formatTime12h(data.matchTime)}</td>
               </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">🏏</td>
