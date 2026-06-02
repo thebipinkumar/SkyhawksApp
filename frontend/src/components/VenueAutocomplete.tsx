@@ -118,22 +118,27 @@ export default function VenueAutocomplete({
 
     try {
       const place = s.placePrediction.toPlace();
-      await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'id'] });
+      await place.fetchFields({ fields: ['displayName', 'formattedAddress'] });
 
-      const venueName = place.displayName ?? s.label;
+      const venueName    = place.displayName ?? s.label;
+      const venueAddress = place.formattedAddress ?? null;
       // Expire the session token after a complete autocomplete → details cycle
       sessionTokenRef.current = null;
 
       onChange(venueName);
+
+      // Build a text-only Maps URL using venue name + full address as the query.
+      // Avoids place_id entirely — the new Places API returns place.id as a resource
+      // name ("places/ChIJ...") which is invalid in Maps URL parameters, and native
+      // Google Maps apps on iOS/Android ignore query_place_id anyway.
+      // A plain ?api=1&query= search works on every platform: desktop, mobile web,
+      // and the native Maps app via universal/app links.
+      const mapsQuery = [venueName, venueAddress].filter(Boolean).join(', ');
       onPlaceSelect({
         venue:         venueName,
-        venue_address: place.formattedAddress ?? null,
-        // Use Google's official cross-platform URL format:
-        // query_place_id for precise place lookup + query (name) as readable fallback.
-        // This works on desktop browsers, mobile browsers, and the native Maps app
-        // on both iOS and Android — unlike the ?q=place_id: format which fails on mobile.
-        venue_maps_url: place.id
-          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueName)}&query_place_id=${place.id}`
+        venue_address: venueAddress,
+        venue_maps_url: mapsQuery
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`
           : null,
       });
 
