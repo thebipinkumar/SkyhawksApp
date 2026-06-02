@@ -85,7 +85,7 @@ export default function UsersPage() {
   });
 
   const fmt = (d?: string) => d
-    ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? new Date(d).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' })
     : '';
 
   const submitResetPw = async () => {
@@ -111,7 +111,12 @@ export default function UsersPage() {
     }
   };
 
-  const memberExpired = (u: User) => !!u.membership_end && new Date(u.membership_end) < new Date();
+  const memberExpired = (u: User) => {
+    if (!u.membership_end) return false;
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+    const exp = new Date(new Date(u.membership_end).toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+    return exp < now;
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">

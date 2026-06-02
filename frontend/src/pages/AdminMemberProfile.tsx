@@ -16,11 +16,17 @@ const roleBadge: Record<string, string> = {
   selector: 'badge-selector', admin: 'badge-admin',
 };
 
+const SGT = 'Asia/Singapore';
 const fmt = (d?: string | null) => d
-  ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  ? new Date(d).toLocaleDateString('en-GB', { timeZone: SGT, day: 'numeric', month: 'long', year: 'numeric' })
   : '—';
 
-const isExpired = (d?: string | null) => !!d && new Date(d) < new Date();
+const isExpired = (d?: string | null) => {
+  if (!d) return false;
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: SGT }));
+  const exp = new Date(new Date(d).toLocaleString('en-US', { timeZone: SGT }));
+  return exp < now;
+};
 
 export default function AdminMemberProfile() {
   const { id }   = useParams<{ id: string }>();

@@ -203,7 +203,7 @@ export default function Matches() {
   const statusColor: Record<string, string> = {
     scheduled: 'bg-blue-100 text-blue-700', completed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-600',
   };
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
   const availSummary = (recs: AvailabilityRecord[]) => ({
     available:     recs.filter(r => r.status === 'available').length,

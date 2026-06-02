@@ -103,7 +103,7 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
               <tr>
                 <td style="padding:7px 0;color:#94a3b8;font-size:14px;width:28px;">📅</td>
                 <td style="padding:7px 0;font-size:14px;color:#334155;">
-                  ${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${formatTime12h(data.matchTime)}
+                  ${new Date(data.matchDate).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${formatTime12h(data.matchTime)}
                 </td>
               </tr>
               <tr>
@@ -253,7 +253,7 @@ function buildHtml(data: AnnouncementEmailData): string {
               </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">📅</td>
-                <td style="padding:6px 0;font-size:14px;color:#334155;">${new Date(data.matchDate).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${formatTime12h(data.matchTime)}</td>
+                <td style="padding:6px 0;font-size:14px;color:#334155;">${new Date(data.matchDate).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', weekday:'long', day:'numeric', month:'long', year:'numeric' })} at ${formatTime12h(data.matchTime)}</td>
               </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:14px;">🏏</td>
