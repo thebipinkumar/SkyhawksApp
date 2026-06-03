@@ -84,9 +84,16 @@ export default function UsersPage() {
     return matchesSearch && matchesRole;
   });
 
-  const fmt = (d?: string) => d
-    ? new Date(d.includes('T') ? d : d.replace(' ', 'T') + 'Z').toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' })
-    : '';
+  const fmt = (d?: string) => {
+    if (!d) return '';
+    // Date-only "YYYY-MM-DD" → suffix with T00:00:00Z (not just Z, which is invalid)
+    // Datetime "YYYY-MM-DD HH:MM:SS" → replace space + add Z
+    const iso = d.endsWith('Z') || d.includes('+') ? d
+      : d.includes(' ') ? d.replace(' ', 'T') + 'Z'
+      : d.includes('T') ? d + 'Z'
+      : d + 'T00:00:00Z';
+    return new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric' });
+  };
 
   const submitResetPw = async () => {
     if (!resetTarget || resetPw.length < 6) { setResetMsg('Password must be at least 6 characters'); return; }

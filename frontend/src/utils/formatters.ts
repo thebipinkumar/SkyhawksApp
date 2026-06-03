@@ -10,10 +10,17 @@ const TZ = 'Asia/Singapore';
  * ISO dates ("2026-06-02") and already-correct strings pass through safely.
  */
 function parseUTC(value: string): Date {
-  // "YYYY-MM-DD HH:MM:SS" → "YYYY-MM-DDTHH:MM:SSZ"
-  const normalised = value.includes('T') ? value : value.replace(' ', 'T');
-  const withZ = normalised.endsWith('Z') || normalised.includes('+') ? normalised : normalised + 'Z';
-  return new Date(withZ);
+  // Already has timezone info — parse as-is
+  if (value.endsWith('Z') || value.includes('+')) return new Date(value);
+
+  // "YYYY-MM-DD HH:MM:SS" (SQLite datetime, UTC, no Z) → add T separator + Z
+  if (value.includes(' ')) return new Date(value.replace(' ', 'T') + 'Z');
+
+  // Already has T separator but no Z → add Z
+  if (value.includes('T')) return new Date(value + 'Z');
+
+  // Date-only "YYYY-MM-DD" → appending just 'Z' is invalid ISO; use midnight UTC
+  return new Date(value + 'T00:00:00Z');
 }
 
 /** Format a last_login DB string as "3 Jun 2026 at 5:08 PM", or "Never logged in" if null. */
