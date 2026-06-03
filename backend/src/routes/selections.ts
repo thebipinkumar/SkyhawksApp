@@ -77,7 +77,7 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
   const settingsRow = row((await db.execute(`SELECT contact_email FROM club_settings WHERE id=1`)).rows[0]);
   const clubCc = settingsRow?.contact_email as string | undefined;
 
-  const { sent, error } = await sendAnnouncementEmails(emailList, {
+  const announcementData = {
     matchTitle:   match.title,
     opponent:     match.opponent,
     venue:        match.venue,
@@ -97,11 +97,26 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
       isViceCaptain: !!s.is_vice_captain,
     })),
     announcedBy: 'Selectors Committee',
-  }, clubCc);
+  };
 
+  // Mark announced and log record immediately — don't wait for email delivery
   await db.execute({ sql: 'UPDATE matches SET is_announced = 1 WHERE id = ?', args: [req.params.matchId] });
   await db.execute({ sql: 'INSERT INTO announcements (match_id, message, sent_by) VALUES (?,?,?)', args: [req.params.matchId, `Team announced for ${match.title} vs ${match.opponent} on ${match.match_date}`, req.user!.id] });
-  res.json({ message: `Announcement sent to ${sent} members`, recipients: sent, ...(error && { emailWarning: error }) });
+
+  // Fire-and-forget: emails sent in small batches (4 per batch) with a
+  // 6-minute gap to warm up the new sending domain — respond immediately.
+  const totalBatches = Math.ceil(emailList.length / 4);
+  const estMinutes   = (totalBatches - 1) * 6;
+  (async () => {
+    const { sent, error } = await sendAnnouncementEmails(emailList, announcementData, clubCc);
+    if (error) console.error('Announcement send error:', error);
+    else console.log(`[announce] Delivery complete — ${sent} sent`);
+  })();
+
+  res.json({
+    message: `Team announcement queued for ${emailList.length} member${emailList.length !== 1 ? 's' : ''}. Emails will be delivered in small batches over ~${estMinutes || 1} minute${estMinutes !== 1 ? 's' : ''}.`,
+    recipients: emailList.length,
+  });
 });
 
 router.get('/announcements', authenticate, async (_req: AuthRequest, res: Response) => {

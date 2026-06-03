@@ -176,9 +176,20 @@ router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (r
     notes:        match.notes as string | null,
   };
 
-  const result = await sendMatchScheduledEmail(emails, data, cc);
-  if (result.error) { res.status(500).json({ error: result.error }); return; }
-  res.json({ message: `Availability reminder sent to ${result.sent} member${result.sent !== 1 ? 's' : ''} who hadn't responded`, sent: result.sent });
+  // Fire-and-forget: emails are sent in small batches (4 per batch) with a
+  // 6-minute gap between batches to warm up the sending domain reputation.
+  // Respond immediately — full delivery completes in the background.
+  const totalBatches = Math.ceil(emails.length / 4);
+  const estMinutes   = (totalBatches - 1) * 6;
+  (async () => {
+    const result = await sendMatchScheduledEmail(emails, data, cc);
+    if (result.error) console.error('Notify send error:', result.error);
+    else console.log(`[notify] Reminder delivery complete — ${result.sent} sent`);
+  })();
+  res.json({
+    message: `Availability reminder queued for ${emails.length} member${emails.length !== 1 ? 's' : ''} who hadn't responded. Emails will be delivered in small batches over ~${estMinutes || 1} minute${estMinutes !== 1 ? 's' : ''}.`,
+    sent: emails.length,
+  });
 });
 
 router.put('/:id', authenticate, authorize('manager', 'admin'), async (req: AuthRequest, res: Response) => {

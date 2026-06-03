@@ -166,17 +166,23 @@ export async function sendMatchScheduledEmail(
   const html    = buildMatchNotificationHtml(data);
 
   try {
-    // BCC bulk send — one SMTP transaction per batch.
-    // Batch size kept at 25 (down from 50) and a 2s pause between batches
-    // to avoid Gmail's 421-4.7.28 rate-limit on new sending domains.
-    const batchSize = 25;
+    // Domain warm-up strategy: small batches with long gaps between sends.
+    // 4 recipients per batch, 6-minute pause between batches.
+    // Callers must invoke this inside a non-blocking IIFE so the HTTP
+    // response is not held while the batches are in-flight.
+    const batchSize = 4;
+    const batchDelay = 6 * 60 * 1000; // 6 minutes
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
-      if (i > 0) await sleep(2000);
+      if (i > 0) {
+        console.log(`[email] Waiting ${batchDelay / 60000}m before next batch (${i}/${recipients.length} sent so far)…`);
+        await sleep(batchDelay);
+      }
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
       sent += to.length + bcc.length;
+      console.log(`[email] Batch sent: ${sent}/${recipients.length}`);
     }
     return { sent };
   } catch (err: any) {
@@ -318,10 +324,10 @@ export async function sendAnnouncementEmails(
 
   try {
     // BCC bulk send — 25 per batch with 2s pause between batches.
-    const batchSize = 25;
+    const batchSize = 4;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
-      if (i > 0) await sleep(2000);
+      if (i > 0) await sleep(6 * 60 * 1000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({
@@ -398,10 +404,10 @@ export async function sendCustomAnnouncementEmail(
 
   try {
     // BCC bulk send — 25 per batch with 2s pause between batches.
-    const batchSize = 25;
+    const batchSize = 4;
     let sent = 0;
     for (let i = 0; i < recipients.length; i += batchSize) {
-      if (i > 0) await sleep(2000);
+      if (i > 0) await sleep(6 * 60 * 1000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });

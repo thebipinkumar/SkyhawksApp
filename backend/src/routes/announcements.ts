@@ -121,19 +121,9 @@ router.post('/', authenticate, authorize('selector', 'manager', 'admin'), (req: 
     const settingsRow = row((await db.execute({ sql: `SELECT contact_email FROM club_settings WHERE id=1`, args: [] })).rows[0]);
     const clubCc = settingsRow?.contact_email as string | undefined;
 
-    // Send emails
     const pos = (image_position === 'above' || image_position === 'below') ? image_position : 'below';
-    const { sent, error: emailError } = await sendCustomAnnouncementEmail(
-      emailList,
-      subject.trim(),
-      content.trim(),
-      sentByName,
-      imageUrl,
-      pos,
-      clubCc,
-    );
 
-    // Persist record
+    // Persist record immediately with recipient count — don't wait for delivery
     const sentTo = recipient_ids === 'all' || (Array.isArray(recipient_ids) && recipient_ids.length === 0)
       ? 'all'
       : JSON.stringify(recipient_ids);
@@ -142,13 +132,24 @@ router.post('/', authenticate, authorize('selector', 'manager', 'admin'), (req: 
       sql: `INSERT INTO custom_announcements
               (subject, content, sent_to, recipient_count, sent_by, image_url, image_public_id, image_position)
             VALUES (?,?,?,?,?,?,?,?)`,
-      args: [subject.trim(), content.trim(), sentTo, sent, req.user!.id, imageUrl, imagePublicId, pos],
+      args: [subject.trim(), content.trim(), sentTo, emailList.length, req.user!.id, imageUrl, imagePublicId, pos],
     });
 
+    // Fire-and-forget: emails sent in small batches (4 per batch) with a
+    // 6-minute gap to warm up the new sending domain — respond immediately.
+    const totalBatches = Math.ceil(emailList.length / 4);
+    const estMinutes   = (totalBatches - 1) * 6;
+    (async () => {
+      const { sent, error: emailError } = await sendCustomAnnouncementEmail(
+        emailList, subject.trim(), content.trim(), sentByName, imageUrl, pos, clubCc,
+      );
+      if (emailError) console.error('Custom announcement send error:', emailError);
+      else console.log(`[announce] Custom delivery complete — ${sent} sent`);
+    })();
+
     res.status(201).json({
-      message: `Announcement sent to ${sent} member${sent !== 1 ? 's' : ''}`,
-      recipients: sent,
-      ...(emailError && { emailWarning: emailError }),
+      message: `Announcement queued for ${emailList.length} member${emailList.length !== 1 ? 's' : ''}. Emails will be delivered in small batches over ~${estMinutes || 1} minute${estMinutes !== 1 ? 's' : ''}.`,
+      recipients: emailList.length,
     });
   });
 });
