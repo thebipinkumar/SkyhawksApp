@@ -16,8 +16,61 @@ const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
  * Either way, every member receives exactly one copy via bcc (or to for
  * the fallback primary), and no recipient can see who else was included.
  */
-/** Small pause between batches so Gmail doesn't flag rapid-fire SMTP connections */
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ── Global sequential email queue ─────────────────────────────────────────────
+//
+// All individual batches (4 recipients each) from every notification type are
+// pushed into a single FIFO queue and processed one at a time with a 6-minute
+// gap between each. This means:
+//
+//   - Two concurrent notifications don't double the send rate
+//   - Batches from notification 2 queue behind notification 1's remaining batches
+//   - Gmail always sees ≤ 4 recipients per send, one every 6 minutes
+//
+// The queue is process-scoped (in-memory). A server restart clears pending
+// batches — acceptable for a small club where sends rarely overlap.
+
+const BATCH_DELAY_MS = 6 * 60 * 1000; // 6 minutes between batches
+
+type BatchTask = () => Promise<void>;
+const _queue: BatchTask[] = [];
+let   _queueRunning = false;
+
+async function _drainQueue() {
+  if (_queueRunning) return;
+  _queueRunning = true;
+  while (_queue.length > 0) {
+    const task = _queue.shift()!;
+    try { await task(); } catch (err) { console.error('[emailQueue] batch error:', err); }
+    if (_queue.length > 0) {
+      console.log(`[emailQueue] ${_queue.length} batch(es) pending — waiting ${BATCH_DELAY_MS / 60000}m…`);
+      await sleep(BATCH_DELAY_MS);
+    }
+  }
+  _queueRunning = false;
+}
+
+/** Enqueue a single batch task. Starts draining if not already running. */
+function enqueueBatch(task: BatchTask) {
+  _queue.push(task);
+  _drainQueue();                // fire-and-forget drain
+}
+
+/** Current queue length — useful for callers to estimate delivery time. */
+export function emailQueueDepth() { return _queue.length; }
+
+// ── Per-send-type in-progress lock ────────────────────────────────────────────
+//
+// Prevents a manager from triggering a duplicate notification for the same
+// match while one is already queued/in-progress. Key format: "<type>:<id>"
+// e.g. "notify:42", "announce:42", "custom:broadcast"
+
+const _inProgress = new Set<string>();
+
+export function isEmailInProgress(key: string) { return _inProgress.has(key); }
+export function markEmailStart(key: string)    { _inProgress.add(key); }
+export function markEmailDone(key: string)     { _inProgress.delete(key); }
 
 /** Convert 24-hour "HH:MM" to "H:MM AM/PM" for email clarity */
 function formatTime12h(time: string): string {
@@ -149,46 +202,41 @@ function buildMatchNotificationHtml(data: MatchNotificationData): string {
 </html>`;
 }
 
-export async function sendMatchScheduledEmail(
+/**
+ * Enqueue a match notification into the global send queue.
+ * Returns immediately with the total recipient count.
+ * Each batch of 4 is a separate queue task separated by 6-minute gaps.
+ */
+export function sendMatchScheduledEmail(
   recipients: string[],
   data: MatchNotificationData,
   cc?: string,
-): Promise<{ sent: number; error?: string }> {
+): { queued: number } {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping match notification email');
-    return { sent: 0, error: 'Email not configured' };
+    return { queued: 0 };
   }
-  if (recipients.length === 0) return { sent: 0 };
+  if (recipients.length === 0) return { queued: 0 };
 
   const subject = data.isReminder
     ? `Availability Reminder: ${data.matchTitle} vs ${data.opponent}`
     : `Match Scheduled: ${data.matchTitle} vs ${data.opponent}`;
-  const html    = buildMatchNotificationHtml(data);
+  const html = buildMatchNotificationHtml(data);
 
-  try {
-    // Domain warm-up strategy: small batches with long gaps between sends.
-    // 4 recipients per batch, 6-minute pause between batches.
-    // Callers must invoke this inside a non-blocking IIFE so the HTTP
-    // response is not held while the batches are in-flight.
-    const batchSize = 4;
-    const batchDelay = 6 * 60 * 1000; // 6 minutes
-    let sent = 0;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      if (i > 0) {
-        console.log(`[email] Waiting ${batchDelay / 60000}m before next batch (${i}/${recipients.length} sent so far)…`);
-        await sleep(batchDelay);
-      }
-      const batch = recipients.slice(i, i + batchSize);
+  // Split into batches of 4 and push each as an independent queue task
+  const batchSize = 4;
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batch = recipients.slice(i, i + batchSize);
+    const batchNum = Math.floor(i / batchSize) + 1;
+    enqueueBatch(async () => {
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
-      sent += to.length + bcc.length;
-      console.log(`[email] Batch sent: ${sent}/${recipients.length}`);
-    }
-    return { sent };
-  } catch (err: any) {
-    console.error('Resend error (match notification):', err);
-    return { sent: 0, error: err.message };
+      console.log(`[email] match-notify batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
+    });
   }
+
+  console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for "${subject}"`);
+  return { queued: recipients.length };
 }
 
 export interface AnnouncementEmailData {
@@ -311,42 +359,39 @@ function buildHtml(data: AnnouncementEmailData): string {
 </html>`;
 }
 
-export async function sendAnnouncementEmails(
+/** Enqueue team-selection announcement batches into the global send queue. */
+export function sendAnnouncementEmails(
   recipients: string[],
   data: AnnouncementEmailData,
   cc?: string,
-): Promise<{ sent: number; error?: string }> {
+): { queued: number } {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping email send');
-    return { sent: 0, error: 'Email not configured' };
+    return { queued: 0 };
   }
-  if (recipients.length === 0) return { sent: 0 };
+  if (recipients.length === 0) return { queued: 0 };
 
-  try {
-    // BCC bulk send — 25 per batch with 2s pause between batches.
-    const batchSize = 4;
-    let sent = 0;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      if (i > 0) await sleep(6 * 60 * 1000);
-      const batch = recipients.slice(i, i + batchSize);
+  const subject = `Team Announcement: ${data.matchTitle} vs ${data.opponent}`;
+  const html    = buildHtml(data);
+  const batchSize = 4;
+
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batch    = recipients.slice(i, i + batchSize);
+    const batchNum = Math.floor(i / batchSize) + 1;
+    enqueueBatch(async () => {
       const { to, bcc } = bulkAddressing(batch, cc);
-      await resend.emails.send({
-        from: FROM, to, bcc,
-        subject: `Team Announcement: ${data.matchTitle} vs ${data.opponent}`,
-        html: buildHtml(data),
-      });
-      sent += to.length + bcc.length;
-    }
-    return { sent };
-  } catch (err: any) {
-    console.error('Resend error:', err);
-    return { sent: 0, error: err.message };
+      await resend.emails.send({ from: FROM, to, bcc, subject, html });
+      console.log(`[email] announce batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
+    });
   }
+
+  console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for "${subject}"`);
+  return { queued: recipients.length };
 }
 
 // ── Custom broadcast email ──────────────────────────────────────────────────
 
-export async function sendCustomAnnouncementEmail(
+export function sendCustomAnnouncementEmail(
   recipients: string[],
   subject: string,
   content: string,
@@ -354,12 +399,12 @@ export async function sendCustomAnnouncementEmail(
   imageUrl?: string | null,
   imagePosition: 'above' | 'below' = 'below',
   cc?: string,
-): Promise<{ sent: number; error?: string }> {
+): { queued: number } {
   if (!process.env.RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set — skipping custom announcement email');
-    return { sent: 0, error: 'Email not configured' };
+    return { queued: 0 };
   }
-  if (recipients.length === 0) return { sent: 0 };
+  if (recipients.length === 0) return { queued: 0 };
 
   // Convert plain-text newlines to <br> for HTML, escape HTML entities
   const htmlContent = content
@@ -402,23 +447,22 @@ export async function sendCustomAnnouncementEmail(
   </table>
 </body></html>`;
 
-  try {
-    // BCC bulk send — 25 per batch with 2s pause between batches.
-    const batchSize = 4;
-    let sent = 0;
-    for (let i = 0; i < recipients.length; i += batchSize) {
-      if (i > 0) await sleep(6 * 60 * 1000);
-      const batch = recipients.slice(i, i + batchSize);
+  const batchSize = 4;
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batch    = recipients.slice(i, i + batchSize);
+    const batchNum = Math.floor(i / batchSize) + 1;
+    enqueueBatch(async () => {
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
-      sent += to.length + bcc.length;
-    }
-    return { sent };
-  } catch (err: any) {
-    console.error('Resend error (custom broadcast):', err);
-    return { sent: 0, error: err.message };
+      console.log(`[email] custom-broadcast batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
+    });
   }
+
+  console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for custom broadcast "${subject}"`);
+  return { queued: recipients.length };
 }
+
+export type { }; // keep module boundary clean
 
 // ── Welcome / approval email ────────────────────────────────────────────────
 

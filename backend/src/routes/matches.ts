@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { getDb, row, rows } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
-import { sendMatchScheduledEmail, MatchNotificationData } from '../utils/email.js';
+import { sendMatchScheduledEmail, MatchNotificationData, isEmailInProgress, markEmailStart, markEmailDone } from '../utils/email.js';
 
 const router = Router();
 
@@ -159,6 +159,13 @@ router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (r
     return;
   }
 
+  // Per-match lock: reject duplicate triggers while batches are still queued
+  const lockKey = `notify:${req.params.id}`;
+  if (isEmailInProgress(lockKey)) {
+    res.status(429).json({ error: 'A notification for this match is already being delivered. Please wait until it completes before sending another.' });
+    return;
+  }
+
   const data: MatchNotificationData = {
     matchTitle:   match.title as string,
     opponent:     match.opponent as string,
@@ -168,7 +175,7 @@ router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (r
     matchDate:    match.match_date as string,
     matchTime:    match.match_time as string,
     matchType:    match.match_type as string,
-    isReminder:   true,   // re-trigger → send as availability reminder
+    isReminder:   true,
     ballType:     match.ball_type as string | undefined,
     attire:       match.attire as string | undefined,
     matchFee:     match.match_fee as number | null,
@@ -176,16 +183,15 @@ router.post('/:id/notify', authenticate, authorize('manager', 'admin'), async (r
     notes:        match.notes as string | null,
   };
 
-  // Fire-and-forget: emails are sent in small batches (4 per batch) with a
-  // 6-minute gap between batches to warm up the sending domain reputation.
-  // Respond immediately — full delivery completes in the background.
   const totalBatches = Math.ceil(emails.length / 4);
   const estMinutes   = (totalBatches - 1) * 6;
-  (async () => {
-    const result = await sendMatchScheduledEmail(emails, data, cc);
-    if (result.error) console.error('Notify send error:', result.error);
-    else console.log(`[notify] Reminder delivery complete — ${result.sent} sent`);
-  })();
+
+  markEmailStart(lockKey);
+  const { queued } = sendMatchScheduledEmail(emails, data, cc);
+  // Release lock once all batches have been enqueued and drained
+  const batchesEnqueued = Math.ceil(queued / 4);
+  setTimeout(() => markEmailDone(lockKey), batchesEnqueued * 6 * 60 * 1000 + 30_000);
+
   res.json({
     message: `Availability reminder queued for ${emails.length} member${emails.length !== 1 ? 's' : ''} who hadn't responded. Emails will be delivered in small batches over ~${estMinutes || 1} minute${estMinutes !== 1 ? 's' : ''}.`,
     sent: emails.length,

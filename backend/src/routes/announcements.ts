@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import { getDb, row, rows } from '../db/database.js';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
-import { sendCustomAnnouncementEmail } from '../utils/email.js';
+import { sendCustomAnnouncementEmail, isEmailInProgress, markEmailStart, markEmailDone } from '../utils/email.js';
 import { uploadImage, deleteImage } from '../db/cloudinary.js';
 
 const router = Router();
@@ -135,17 +135,21 @@ router.post('/', authenticate, authorize('selector', 'manager', 'admin'), (req: 
       args: [subject.trim(), content.trim(), sentTo, emailList.length, req.user!.id, imageUrl, imagePublicId, pos],
     });
 
-    // Fire-and-forget: emails sent in small batches (4 per batch) with a
-    // 6-minute gap to warm up the new sending domain — respond immediately.
+    // Per-send lock: prevent duplicate custom announcement blasts
+    const lockKey = `custom:${req.user!.id}:${Date.now()}`;   // unique per send
+    if (isEmailInProgress('custom:broadcast')) {
+      res.status(429).json({ error: 'An announcement is already being delivered. Please wait until it completes before sending another.' });
+      return;
+    }
+
     const totalBatches = Math.ceil(emailList.length / 4);
     const estMinutes   = (totalBatches - 1) * 6;
-    (async () => {
-      const { sent, error: emailError } = await sendCustomAnnouncementEmail(
-        emailList, subject.trim(), content.trim(), sentByName, imageUrl, pos, clubCc,
-      );
-      if (emailError) console.error('Custom announcement send error:', emailError);
-      else console.log(`[announce] Custom delivery complete — ${sent} sent`);
-    })();
+
+    markEmailStart('custom:broadcast');
+    const { queued } = sendCustomAnnouncementEmail(
+      emailList, subject.trim(), content.trim(), sentByName, imageUrl, pos, clubCc,
+    );
+    setTimeout(() => markEmailDone('custom:broadcast'), Math.ceil(queued / 4) * 6 * 60 * 1000 + 30_000);
 
     res.status(201).json({
       message: `Announcement queued for ${emailList.length} member${emailList.length !== 1 ? 's' : ''}. Emails will be delivered in small batches over ~${estMinutes || 1} minute${estMinutes !== 1 ? 's' : ''}.`,
