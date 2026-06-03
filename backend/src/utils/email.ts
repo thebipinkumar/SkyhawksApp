@@ -3,15 +3,6 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = 'Skyhawks Cricket Club <announcements@skyhawkscricketclub.com>';
 
-// List-Unsubscribe headers tell Gmail this is a legitimate bulk mailer,
-// which is a key signal for avoiding the 421-4.7.28 rate limit.
-// RFC 8058 one-click unsubscribe is required by Google's Feb 2024 bulk
-// sender guidelines for senders to Gmail addresses.
-const BULK_HEADERS = {
-  'List-Unsubscribe': '<mailto:unsubscribe@skyhawkscricketclub.com?subject=unsubscribe>',
-  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-  'Precedence': 'bulk',
-};
 
 /**
  * Build the `to` / `bcc` fields for a bulk BCC send.
@@ -184,7 +175,7 @@ export async function sendMatchScheduledEmail(
       if (i > 0) await sleep(2000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
-      await resend.emails.send({ from: FROM, to, bcc, subject, html, headers: BULK_HEADERS });
+      await resend.emails.send({ from: FROM, to, bcc, subject, html });
       sent += to.length + bcc.length;
     }
     return { sent };
@@ -337,7 +328,6 @@ export async function sendAnnouncementEmails(
         from: FROM, to, bcc,
         subject: `Team Announcement: ${data.matchTitle} vs ${data.opponent}`,
         html: buildHtml(data),
-        headers: BULK_HEADERS,
       });
       sent += to.length + bcc.length;
     }
@@ -414,7 +404,7 @@ export async function sendCustomAnnouncementEmail(
       if (i > 0) await sleep(2000);
       const batch = recipients.slice(i, i + batchSize);
       const { to, bcc } = bulkAddressing(batch, cc);
-      await resend.emails.send({ from: FROM, to, bcc, subject, html, headers: BULK_HEADERS });
+      await resend.emails.send({ from: FROM, to, bcc, subject, html });
       sent += to.length + bcc.length;
     }
     return { sent };
