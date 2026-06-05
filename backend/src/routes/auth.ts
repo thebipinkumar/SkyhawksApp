@@ -42,8 +42,7 @@ router.post('/register', async (req: Request, res: Response) => {
         args: [],
       });
       const adminEmails = rows(adminRes.rows).map((r: any) => r.email as string).filter(Boolean);
-      const appUrl = process.env.FRONTEND_URL || 'https://skyhawkscricketclub.com';
-      await sendNewMemberNotification(adminEmails, { name, email: email.toLowerCase(), phone: phone || null }, appUrl);
+      await sendNewMemberNotification(adminEmails, { name, email: email.toLowerCase(), phone: phone || null });
     } catch (err) { console.error('New member notification error:', err); }
   })();
 });

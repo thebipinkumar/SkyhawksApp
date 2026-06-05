@@ -536,7 +536,6 @@ export async function sendWelcomeEmail(
 export async function sendNewMemberNotification(
   adminEmails: string[],
   member: { name: string; email: string; phone?: string | null },
-  appUrl: string,
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping new member notification'); return; }
   if (adminEmails.length === 0) return;
@@ -572,14 +571,7 @@ export async function sendNewMemberNotification(
               </tr>` : ''}
             </table>
 
-            <div style="text-align:center;margin-bottom:24px;">
-              <a href="${appUrl}/admin/users/pending"
-                 style="display:inline-block;background:#1d4ed8;color:#fff;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:15px;">
-                Review & Approve →
-              </a>
-            </div>
-
-            <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+            <p style="margin:0 0 0;font-size:13px;color:#94a3b8;text-align:center;">
               Log in to the Skyhawks portal and go to <strong>Members → Pending</strong> to approve or reject this request.
             </p>
 
