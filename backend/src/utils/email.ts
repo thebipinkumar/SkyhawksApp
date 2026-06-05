@@ -531,6 +531,76 @@ export async function sendWelcomeEmail(
   await resend.emails.send({ from: FROM, to, subject: `Welcome to Skyhawks Cricket Club, ${name}!`, html, ...(cc ? { cc: [cc] } : {}) });
 }
 
+// ── New member signup notification (to admins & managers) ─────────────────────
+
+export async function sendNewMemberNotification(
+  adminEmails: string[],
+  member: { name: string; email: string; phone?: string | null },
+  appUrl: string,
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping new member notification'); return; }
+  if (adminEmails.length === 0) return;
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:28px 32px 24px;text-align:center;">
+            <p style="margin:0 0 4px;color:#93c5fd;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Skyhawks Cricket Club</p>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">🏏 New Member Request</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#0f172a;">A new player has applied to join the club and is waiting for your approval.</p>
+
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#f8fafc;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:6px 0;font-size:13px;color:#64748b;width:100px;">Name</td>
+                <td style="padding:6px 0;font-size:14px;color:#0f172a;font-weight:600;">${member.name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:13px;color:#64748b;">Email</td>
+                <td style="padding:6px 0;font-size:14px;color:#0f172a;">${member.email}</td>
+              </tr>
+              ${member.phone ? `<tr>
+                <td style="padding:6px 0;font-size:13px;color:#64748b;">Phone</td>
+                <td style="padding:6px 0;font-size:14px;color:#0f172a;">${member.phone}</td>
+              </tr>` : ''}
+            </table>
+
+            <div style="text-align:center;margin-bottom:24px;">
+              <a href="${appUrl}/admin/users/pending"
+                 style="display:inline-block;background:#1d4ed8;color:#fff;font-weight:700;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:15px;">
+                Review & Approve →
+              </a>
+            </div>
+
+            <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+              Log in to the Skyhawks portal and go to <strong>Members → Pending</strong> to approve or reject this request.
+            </p>
+
+            <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 12px;">
+            <p style="margin:0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  // Send directly to each admin/manager (not bulk BCC — this is a small targeted send)
+  await resend.emails.send({
+    from: FROM,
+    to: adminEmails,
+    subject: `New member request: ${member.name}`,
+    html,
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping reset email'); return; }
   const html = `<!DOCTYPE html>

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { getDb, row, rows } from '../db/database.js';
 import { signToken, authenticate, AuthRequest } from '../middleware/auth.js';
-import { sendPasswordResetEmail } from '../utils/email.js';
+import { sendPasswordResetEmail, sendNewMemberNotification } from '../utils/email.js';
 
 const router = Router();
 
@@ -29,6 +29,23 @@ router.post('/register', async (req: Request, res: Response) => {
            colored_tshirt_size||null, colored_lower_size||null, colored_sleeve||null],
   });
   res.status(201).json({ pending: true, message: 'Registration submitted! A manager or admin will review your request. You will be able to log in once approved.' });
+
+  // Notify all active admins and managers — non-blocking so registration is never delayed
+  (async () => {
+    try {
+      const adminRes = await db.execute({
+        sql: `SELECT DISTINCT u.email FROM users u
+              JOIN user_roles ur ON ur.user_id = u.id
+              WHERE u.status = 'active'
+                AND ur.role IN ('admin', 'manager')
+                AND u.email IS NOT NULL`,
+        args: [],
+      });
+      const adminEmails = rows(adminRes.rows).map((r: any) => r.email as string).filter(Boolean);
+      const appUrl = process.env.FRONTEND_URL || 'https://skyhawkscricketclub.com';
+      await sendNewMemberNotification(adminEmails, { name, email: email.toLowerCase(), phone: phone || null }, appUrl);
+    } catch (err) { console.error('New member notification error:', err); }
+  })();
 });
 
 router.post('/login', async (req: Request, res: Response) => {
