@@ -20,16 +20,17 @@ const navLinks: NavLink[] = [
   { to: '/matches',        label: 'Matches',        icon: Calendar,       roles: ['player', 'manager', 'selector', 'admin'] },
   { to: '/team-selection', label: 'Team Selection',  icon: ClipboardList,  roles: ['selector', 'admin'] },
   { to: '/announcements',  label: 'Announcements',   icon: Megaphone,      roles: ['player', 'manager', 'selector', 'admin'] },
-  { to: '/budget',         label: 'Finance',         icon: DollarSign,     roles: ['manager', 'admin'] },
-  { to: '/users',          label: 'Members',         icon: Users,          roles: ['admin', 'manager', 'selector'] },
+  { to: '/budget',         label: 'Finance',         icon: DollarSign,     roles: ['manager', 'admin', 'account_manager'] },
+  { to: '/users',          label: 'Members',         icon: Users,          roles: ['admin', 'manager', 'selector', 'account_manager'] },
   { to: '/jerseys',        label: 'Merchandise',     icon: Package,        roles: ['admin', 'manager', 'selector', 'player'] },
-  { to: '/membership',     label: 'Membership',      icon: CreditCard,     roles: ['admin', 'manager'] },
+  { to: '/membership',     label: 'Membership',      icon: CreditCard,     roles: ['admin', 'manager', 'account_manager'] },
   { to: '/admin/settings', label: 'Settings',        icon: Settings,       roles: ['admin'] },
 ];
 
 const roleBadgeClass: Record<string, string> = {
   player: 'badge-player', manager: 'badge-manager',
   selector: 'badge-selector', admin: 'badge-admin',
+  account_manager: 'badge-account-manager',
 };
 
 export default function Navbar() {

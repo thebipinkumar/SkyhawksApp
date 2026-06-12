@@ -18,7 +18,7 @@ const PROFILE_COLS = `id, name, email, role, phone, bio, avatar_url, batting_sty
   colored_tshirt_size, colored_lower_size, colored_sleeve,
   membership_start, membership_end, last_login`;
 
-const VALID_ROLES = ['player', 'manager', 'selector', 'admin'];
+const VALID_ROLES = ['player', 'manager', 'selector', 'admin', 'account_manager'];
 const router = Router();
 
 // Active members list — includes their roles array

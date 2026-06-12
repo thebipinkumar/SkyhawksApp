@@ -308,6 +308,25 @@ export async function initDb(): Promise<void> {
     )`);
   } catch { /* exists */ }
 
+  // Migrate: expand user_roles CHECK constraint to include 'account_manager'
+  try {
+    const schemaRes = await db.execute(`SELECT sql FROM sqlite_master WHERE type='table' AND name='user_roles'`);
+    const schemaSql = (schemaRes.rows[0]?.[0] ?? '') as string;
+    if (!schemaSql.includes('account_manager')) {
+      await db.execute('PRAGMA foreign_keys = OFF');
+      await db.execute(`CREATE TABLE user_roles_new (
+        user_id INTEGER NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('player','manager','selector','admin','account_manager')),
+        PRIMARY KEY (user_id, role),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`);
+      await db.execute(`INSERT INTO user_roles_new SELECT * FROM user_roles`);
+      await db.execute('DROP TABLE user_roles');
+      await db.execute('ALTER TABLE user_roles_new RENAME TO user_roles');
+      await db.execute('PRAGMA foreign_keys = ON');
+    }
+  } catch (e) { console.error('user_roles migration error:', e); }
+
   // Migrate: populate user_roles from existing role column (run once)
   const roleCount = await db.execute('SELECT COUNT(*) as n FROM user_roles');
   const userCount = await db.execute(`SELECT COUNT(*) as n FROM users WHERE status = 'active'`);

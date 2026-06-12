@@ -5,13 +5,13 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth.js';
 const router = Router();
 
 // GET /fees — list all yearly fee records (admin/manager)
-router.get('/fees', authenticate, authorize('admin', 'manager'), async (_req: AuthRequest, res: Response) => {
+router.get('/fees', authenticate, authorize('admin', 'manager', 'account_manager'), async (_req: AuthRequest, res: Response) => {
   const result = await getDb().execute(`SELECT * FROM membership_fees ORDER BY year DESC`);
   res.json(rows(result.rows));
 });
 
 // PUT /fees/:year — upsert fee amount for a year (admin/manager)
-router.put('/fees/:year', authenticate, authorize('admin', 'manager'), async (req: AuthRequest, res: Response) => {
+router.put('/fees/:year', authenticate, authorize('admin', 'manager', 'account_manager'), async (req: AuthRequest, res: Response) => {
   const year = Number(req.params.year);
   const { amount, currency = 'SGD' } = req.body;
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -35,7 +35,7 @@ router.put('/fees/:year', authenticate, authorize('admin', 'manager'), async (re
 });
 
 // GET /payments?year=YYYY — all members with payment status for a given year (admin/manager)
-router.get('/payments', authenticate, authorize('admin', 'manager'), async (req: AuthRequest, res: Response) => {
+router.get('/payments', authenticate, authorize('admin', 'manager', 'account_manager'), async (req: AuthRequest, res: Response) => {
   const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
   const db = getDb();
   const result = await db.execute({
@@ -52,7 +52,7 @@ router.get('/payments', authenticate, authorize('admin', 'manager'), async (req:
 });
 
 // PATCH /payments/:userId — update or create payment record for a user+year (admin/manager)
-router.patch('/payments/:userId', authenticate, authorize('admin', 'manager'), async (req: AuthRequest, res: Response) => {
+router.patch('/payments/:userId', authenticate, authorize('admin', 'manager', 'account_manager'), async (req: AuthRequest, res: Response) => {
   const userId = Number(req.params.userId);
   const year = req.body.year ? Number(req.body.year) : new Date().getFullYear();
   const { status, paid_date, notes } = req.body;

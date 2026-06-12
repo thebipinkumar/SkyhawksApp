@@ -25,12 +25,12 @@ export default function Dashboard() {
           .slice(0, 3);
         setUpcomingMatches(upcoming);
 
-        if (userRoles.some(r => ['admin', 'manager', 'selector'].includes(r))) {
+        if (userRoles.some(r => ['admin', 'manager', 'selector', 'account_manager'].includes(r))) {
           const usersRes = await api.get('/users');
           setTotalMembers(usersRes.data.length);
         }
 
-        if (userRoles.some(r => ['admin', 'manager'].includes(r))) {
+        if (userRoles.some(r => ['admin', 'manager', 'account_manager'].includes(r))) {
           const budgetRes = await api.get('/budget');
           setBudget(budgetRes.data.summary);
         }
@@ -148,7 +148,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {userRoles.some(r => ['admin', 'manager', 'selector'].includes(r)) && (
+        {userRoles.some(r => ['admin', 'manager', 'selector', 'account_manager'].includes(r)) && (
           <div className="card flex items-center gap-4">
             <div className="p-3 bg-purple-100 rounded-xl"><Users size={24} className="text-purple-700" /></div>
             <div>
@@ -158,7 +158,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {userRoles.some(r => ['admin', 'manager'].includes(r)) && budget && (
+        {userRoles.some(r => ['admin', 'manager', 'account_manager'].includes(r)) && budget && (
           <>
             <div className="card flex items-center gap-4">
               <div className="p-3 bg-green-100 rounded-xl"><DollarSign size={24} className="text-green-700" /></div>
@@ -243,13 +243,13 @@ export default function Dashboard() {
                   <span className="text-sm font-medium">Select Team</span>
                 </Link>
               )}
-              {userRoles.some(r => ['manager', 'admin'].includes(r)) && (
+              {userRoles.some(r => ['manager', 'admin', 'account_manager'].includes(r)) && (
                 <Link to="/budget" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <DollarSign size={18} className="text-green-600" />
                   <span className="text-sm font-medium">Manage Finance</span>
                 </Link>
               )}
-              {userRoles.some(r => ['manager', 'admin'].includes(r)) && (
+              {userRoles.some(r => ['manager', 'admin', 'account_manager'].includes(r)) && (
                 <Link to="/membership" className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <Users size={18} className="text-amber-600" />
                   <span className="text-sm font-medium">Membership Fees</span>

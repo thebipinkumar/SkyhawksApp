@@ -77,11 +77,11 @@ function AppRoutes() {
 
       {/* Protected — role-gated */}
       <Route path="/team-selection" element={<ProtectedRoute roles={['selector','admin']}><TeamSelection /></ProtectedRoute>} />
-      <Route path="/budget"         element={<ProtectedRoute roles={['manager','admin']}><Budget /></ProtectedRoute>} />
-      <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector']}><UsersPage /></ProtectedRoute>} />
+      <Route path="/budget"         element={<ProtectedRoute roles={['manager','admin','account_manager']}><Budget /></ProtectedRoute>} />
+      <Route path="/users"          element={<ProtectedRoute roles={['admin','manager','selector','account_manager']}><UsersPage /></ProtectedRoute>} />
       <Route path="/admin/settings"        element={<ProtectedRoute roles={['admin']}><AdminSettings /></ProtectedRoute>} />
       <Route path="/jerseys"               element={<ProtectedRoute roles={['admin','manager','selector','player']}><JerseyList /></ProtectedRoute>} />
-      <Route path="/membership"            element={<ProtectedRoute roles={['admin','manager']}><MembershipPage /></ProtectedRoute>} />
+      <Route path="/membership"            element={<ProtectedRoute roles={['admin','manager','account_manager']}><MembershipPage /></ProtectedRoute>} />
       <Route path="/admin/members/:id"     element={<ProtectedRoute roles={['admin']}><AdminMemberProfile /></ProtectedRoute>} />
       <Route path="/membership-expired"    element={<MembershipExpired />} />
 

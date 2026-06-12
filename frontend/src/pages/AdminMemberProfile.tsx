@@ -14,6 +14,7 @@ const SLEEVES       = ['', 'Half Sleeve', 'Full Sleeve'];
 const roleBadge: Record<string, string> = {
   player: 'badge-player', manager: 'badge-manager',
   selector: 'badge-selector', admin: 'badge-admin',
+  account_manager: 'badge-account-manager',
 };
 
 const fmt = (d?: string | null) => fmtSGT(d ?? undefined);

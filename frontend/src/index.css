@@ -39,6 +39,9 @@
   .badge-admin {
     @apply bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full;
   }
+  .badge-account-manager {
+    @apply bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5 rounded-full;
+  }
 }
 
 /* Google Maps Places autocomplete dropdown — must render above modal overlays (z-50 = 50) */
