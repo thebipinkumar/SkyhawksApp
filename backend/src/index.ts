@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { initDb } from './db/database.js';
+import { startCronJobs } from './utils/cron.js';
 import authRoutes      from './routes/auth.js';
 import userRoutes      from './routes/users.js';
 import matchRoutes     from './routes/matches.js';
@@ -41,6 +42,7 @@ app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'Skyhawks Crick
 
 initDb()
   .then(() => {
+    startCronJobs();
     app.listen(PORT, () => console.log(`Skyhawks API → http://localhost:${PORT}`));
   })
   .catch(err => {

@@ -5,16 +5,40 @@ import { sendMatchScheduledEmail, MatchNotificationData, isEmailInProgress, mark
 
 const router = Router();
 
-const MATCH_LIST_SQL = `
+const MATCH_BASE_SQL = `
   SELECT m.*, u.name as created_by_name, t.name as tournament_name
   FROM matches m
   JOIN users u ON m.created_by = u.id
   LEFT JOIN tournaments t ON m.tournament_id = t.id
-  ORDER BY m.match_date DESC, m.match_time DESC
 `;
 
-router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
-  const result = await getDb().execute(MATCH_LIST_SQL);
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+  const db = getDb();
+  const view = req.query.view as string | undefined;
+
+  if (view === 'upcoming') {
+    // Scheduled matches on or after today (SGT: offset by +8h for UTC comparison)
+    const result = await db.execute(
+      MATCH_BASE_SQL +
+      `WHERE m.status = 'scheduled' AND m.match_date >= DATE('now', '+8 hours')
+       ORDER BY m.match_date ASC, m.match_time ASC`
+    );
+    res.json(rows(result.rows)); return;
+  }
+
+  if (view === 'past') {
+    // Completed, cancelled, or scheduled matches whose date has already passed
+    const result = await db.execute(
+      MATCH_BASE_SQL +
+      `WHERE m.status IN ('completed', 'cancelled')
+          OR (m.status = 'scheduled' AND m.match_date < DATE('now', '+8 hours'))
+       ORDER BY m.match_date DESC, m.match_time DESC`
+    );
+    res.json(rows(result.rows)); return;
+  }
+
+  // No view param — return all (backward compat for dashboard etc.)
+  const result = await db.execute(MATCH_BASE_SQL + `ORDER BY m.match_date DESC, m.match_time DESC`);
   res.json(rows(result.rows));
 });
 

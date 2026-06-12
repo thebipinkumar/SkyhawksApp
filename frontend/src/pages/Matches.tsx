@@ -34,14 +34,17 @@ const availabilityConfig: Record<AvailabilityStatus, { label: string; color: str
 export default function Matches() {
   const { user } = useAuth();
   const [matches, setMatches]               = useState<Match[]>([]);
+  const [pastMatches, setPastMatches]       = useState<Match[]>([]);
+  const [pastLoaded, setPastLoaded]         = useState(false);
   const [tournaments, setTournaments]       = useState<Tournament[]>([]);
   const [loading, setLoading]               = useState(true);
+  const [pastLoading, setPastLoading]       = useState(false);
+  const [view, setView]                     = useState<'upcoming' | 'past'>('upcoming');
   const [showForm, setShowForm]             = useState(false);
   const [editMatch, setEditMatch]           = useState<Match | null>(null);
   const [form, setForm]                     = useState(emptyMatch);
   const [submitting, setSubmitting]         = useState(false);
   const [error, setError]                   = useState('');
-  const [filter, setFilter]                 = useState('all');
 
   // Tournament management
   const [showTournamentModal, setShowTournamentModal] = useState(false);
@@ -71,11 +74,30 @@ export default function Matches() {
   const isPlayer   = userRoles.includes('player');
 
   const load = async () => {
+    setLoading(true);
     try {
-      const [matchRes, tRes] = await Promise.all([api.get('/matches'), api.get('/tournaments')]);
+      const [matchRes, tRes] = await Promise.all([
+        api.get('/matches?view=upcoming'),
+        api.get('/tournaments'),
+      ]);
       setMatches(matchRes.data);
       setTournaments(tRes.data);
     } finally { setLoading(false); }
+  };
+
+  const loadPast = async () => {
+    if (pastLoaded) return;
+    setPastLoading(true);
+    try {
+      const { data } = await api.get('/matches?view=past');
+      setPastMatches(data);
+      setPastLoaded(true);
+    } finally { setPastLoading(false); }
+  };
+
+  const switchView = (v: 'upcoming' | 'past') => {
+    setView(v);
+    if (v === 'past') loadPast();
   };
 
   useEffect(() => { load(); }, []);
@@ -92,6 +114,10 @@ export default function Matches() {
   useEffect(() => {
     if (matches.length > 0) matches.forEach(m => loadAvailability(m.id));
   }, [matches]);
+
+  useEffect(() => {
+    if (pastMatches.length > 0) pastMatches.forEach(m => loadAvailability(m.id));
+  }, [pastMatches]);
 
   const toggleSquad = async (match: Match) => {
     const open = !expandedSquad[match.id];
@@ -146,14 +172,21 @@ export default function Matches() {
         ...(editMatch ? { notify_members: undefined } : { notify_members: form.notify_members }),
       };
       editMatch ? await api.put(`/matches/${editMatch.id}`, payload) : await api.post('/matches', payload);
-      setShowForm(false); load();
+      setShowForm(false);
+      // Refresh both views so stale data doesn't linger
+      setPastLoaded(false); setPastMatches([]);
+      load();
     } catch (err: any) { setError(err.response?.data?.error || 'Failed to save match'); }
     finally { setSubmitting(false); }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this match?')) return;
-    try { await api.delete(`/matches/${id}`); load(); }
+    try {
+      await api.delete(`/matches/${id}`);
+      setPastLoaded(false); setPastMatches([]);
+      load();
+    }
     catch (err: any) { alert(err.response?.data?.error || 'Failed to delete match.'); }
   };
 
@@ -199,7 +232,8 @@ export default function Matches() {
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to delete tournament.'); }
   };
 
-  const filtered = filter === 'all' ? matches : matches.filter(m => m.status === filter);
+  const displayMatches = view === 'upcoming' ? matches : pastMatches;
+  const isLoadingView  = view === 'upcoming' ? loading : pastLoading;
   const statusColor: Record<string, string> = {
     scheduled: 'bg-blue-100 text-blue-700', completed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-600',
   };
@@ -220,7 +254,7 @@ export default function Matches() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Calendar size={26} className="text-blue-700" /> Match Schedule
           </h1>
-          <p className="text-gray-500 text-sm mt-1">{matches.length} total matches</p>
+          <p className="text-gray-500 text-sm mt-1">{displayMatches.length} {view === 'upcoming' ? 'upcoming' : 'past'} match{displayMatches.length !== 1 ? 'es' : ''}</p>
         </div>
         <div className="flex gap-2">
           {canManage && (
@@ -236,14 +270,22 @@ export default function Matches() {
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {['all', 'scheduled', 'completed', 'cancelled'].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === f ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
+      {/* View tabs */}
+      <div className="flex gap-2 mb-6">
+        <button onClick={() => switchView('upcoming')}
+          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${view === 'upcoming' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+          <Calendar size={15} /> Upcoming Matches
+          {view === 'upcoming' && matches.length > 0 && (
+            <span className="bg-white/30 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{matches.length}</span>
+          )}
+        </button>
+        <button onClick={() => switchView('past')}
+          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${view === 'past' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+          <Clock size={15} /> Past Matches
+          {view === 'past' && pastMatches.length > 0 && (
+            <span className="bg-white/30 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{pastMatches.length}</span>
+          )}
+        </button>
       </div>
 
       {notifyMsg && (
@@ -252,16 +294,16 @@ export default function Matches() {
         </div>
       )}
 
-      {loading ? (
+      {isLoadingView ? (
         <div className="grid gap-4">{[1,2,3].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}</div>
-      ) : filtered.length === 0 ? (
+      ) : displayMatches.length === 0 ? (
         <div className="card text-center py-16 text-gray-400">
           <Calendar size={48} className="mx-auto mb-3 opacity-30" />
-          <p className="text-lg">No matches found</p>
+          <p className="text-lg">{view === 'upcoming' ? 'No upcoming matches scheduled' : 'No past matches found'}</p>
         </div>
       ) : (
         <div className="grid gap-4">
-          {filtered.map(match => {
+          {displayMatches.map(match => {
             const recs    = availability[match.id] || [];
             const summ    = availSummary(recs);
             const mine    = myStatus[match.id] || 'not_responded';
