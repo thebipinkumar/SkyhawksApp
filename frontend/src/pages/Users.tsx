@@ -6,11 +6,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { Users as UsersIcon, Trash2, Phone, Mail, Calendar, Clock, CheckCircle, XCircle, KeyRound, X, UserCog, CalendarClock } from 'lucide-react';
 import { formatLastLoginShort, isExpiredSGT } from '../utils/formatters';
 
-const ROLES: Role[] = ['player', 'manager', 'selector', 'admin'];
+const ROLES: Role[] = ['player', 'manager', 'selector', 'admin', 'account_manager'];
 
 const roleBadge: Record<Role, string> = {
   player: 'badge-player', manager: 'badge-manager',
   selector: 'badge-selector', admin: 'badge-admin',
+  account_manager: 'badge-account-manager',
 };
 
 export default function UsersPage() {

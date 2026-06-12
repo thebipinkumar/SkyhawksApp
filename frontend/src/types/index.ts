@@ -1,4 +1,4 @@
-export type Role = 'player' | 'manager' | 'selector' | 'admin';
+export type Role = 'player' | 'manager' | 'selector' | 'admin' | 'account_manager';
 
 export interface Tournament {
   id: number;
