@@ -263,6 +263,11 @@ export async function initDb(): Promise<void> {
   // Migrate: last login tracking
   try { await db.execute(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch { /* exists */ }
 
+  // Migrate: availability auto-reminder settings on club_settings
+  try { await db.execute(`ALTER TABLE club_settings ADD COLUMN avail_reminder_enabled INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE club_settings ADD COLUMN avail_reminder_hour INTEGER NOT NULL DEFAULT 10`); } catch { /* exists */ }
+  try { await db.execute(`ALTER TABLE club_settings ADD COLUMN avail_reminder_last_sent TEXT`); } catch { /* exists */ }
+
   // Migrate: add ball_type, attire, match_fee to matches + remove old match_type CHECK constraint
   try {
     await db.execute('SELECT ball_type FROM matches LIMIT 1');

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, FormEvent } from 'react';
 import api from '../utils/api';
 import { useClub } from '../contexts/ClubContext';
-import { Settings, Upload, Trash2, Plus, X, Save, Image, GalleryHorizontal, Edit2, Check, Instagram, Facebook } from 'lucide-react';
+import { Settings, Upload, Trash2, Plus, X, Save, Image, GalleryHorizontal, Edit2, Check, Instagram, Facebook, Bell } from 'lucide-react';
 
 interface BannerImage { id: number; image_url: string; caption: string | null; sort_order: number; }
 
@@ -20,6 +20,12 @@ export default function AdminSettings() {
   const [msg, setMsg]             = useState('');
   const [err, setErr]             = useState('');
   const logoRef                   = useRef<HTMLInputElement>(null);
+
+  // ── Notification settings ──
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderHour, setReminderHour]       = useState(10);
+  const [reminderSaving, setReminderSaving]   = useState(false);
+  const [reminderMsg, setReminderMsg]         = useState('');
 
   // ── Banner state ──
   const [banners, setBanners]                 = useState<BannerImage[]>([]);
@@ -42,6 +48,8 @@ export default function AdminSettings() {
         facebook_url:  data.facebook_url  || '',
       });
       setLogoUrl(data.logo_url || null);
+      setReminderEnabled(!!data.avail_reminder_enabled);
+      setReminderHour(data.avail_reminder_hour ?? 10);
     });
     loadBanners();
   }, []);
@@ -85,6 +93,17 @@ export default function AdminSettings() {
   const addAchievement    = () => setForm(f => ({ ...f, achievements: [...f.achievements, ''] }));
   const removeAchievement = (i: number) =>
     setForm(f => ({ ...f, achievements: f.achievements.filter((_, idx) => idx !== i) }));
+
+  // ── Notification settings save ──
+  const handleSaveReminder = async () => {
+    setReminderSaving(true); setReminderMsg('');
+    try {
+      await api.patch('/settings/avail-reminder', { avail_reminder_enabled: reminderEnabled, avail_reminder_hour: reminderHour });
+      setReminderMsg('Notification settings saved!');
+      setTimeout(() => setReminderMsg(''), 3000);
+    } catch { setReminderMsg('Failed to save.'); }
+    finally { setReminderSaving(false); }
+  };
 
   // ── Banners ──
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,6 +250,60 @@ export default function AdminSettings() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Notification Settings ── */}
+      <div className="card space-y-4">
+        <h2 className="font-bold text-gray-900 flex items-center gap-2">
+          <Bell size={18} className="text-blue-600" /> Notification Settings
+        </h2>
+        <p className="text-sm text-gray-500">
+          Automatically remind members who haven't responded to upcoming match availability.
+          Runs once per day at the configured time (Singapore time).
+        </p>
+
+        {reminderMsg && (
+          <div className={`rounded-lg p-3 text-sm ${reminderMsg.includes('Failed') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+            {reminderMsg}
+          </div>
+        )}
+
+        <label className="flex items-center gap-3 cursor-pointer group">
+          <div
+            onClick={() => setReminderEnabled(v => !v)}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer flex-shrink-0 ${reminderEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}>
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${reminderEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-800">Auto availability reminder</p>
+            <p className="text-xs text-gray-500">
+              {reminderEnabled ? 'Enabled — reminders will be sent daily' : 'Disabled — no automatic reminders'}
+            </p>
+          </div>
+        </label>
+
+        {reminderEnabled && (
+          <div className="flex items-center gap-3 pl-1">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Send at</label>
+            <select
+              className="input-field max-w-[160px]"
+              value={reminderHour}
+              onChange={e => setReminderHour(Number(e.target.value))}>
+              {Array.from({ length: 24 }, (_, h) => {
+                const label = h === 0 ? '12:00 AM' : h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`;
+                return <option key={h} value={h}>{label}</option>;
+              })}
+            </select>
+            <span className="text-sm text-gray-500">Singapore time</span>
+          </div>
+        )}
+
+        <div>
+          <button onClick={handleSaveReminder} disabled={reminderSaving}
+            className="btn-primary flex items-center gap-2 text-sm">
+            <Save size={14} /> {reminderSaving ? 'Saving…' : 'Save Notification Settings'}
+          </button>
+        </div>
       </div>
 
       {/* ── About page content ── */}

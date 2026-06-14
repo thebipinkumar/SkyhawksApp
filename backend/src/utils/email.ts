@@ -462,6 +462,92 @@ export function sendCustomAnnouncementEmail(
   return { queued: recipients.length };
 }
 
+// ── Availability bulk reminder email ────────────────────────────────────────
+
+export interface ReminderMatch {
+  title: string;
+  opponent: string;
+  venue: string;
+  match_date: string;
+  match_time: string;
+  match_type: string;
+}
+
+export function sendAvailabilityReminderEmail(
+  recipients: string[],
+  matches: ReminderMatch[],
+  cc?: string,
+): { queued: number } {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — skipping availability reminder');
+    return { queued: 0 };
+  }
+  if (recipients.length === 0) return { queued: 0 };
+
+  const subject = `⏰ Action Required: Update Your Match Availability`;
+
+  const matchRows = matches.map(m => {
+    const dateStr = new Date(m.match_date.length === 10 ? m.match_date + 'T00:00:00Z' : m.match_date)
+      .toLocaleDateString('en-GB', { timeZone: 'Asia/Singapore', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    return `<tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">
+        <p style="margin:0;font-size:14px;font-weight:600;color:#0f172a;">${m.title} <span style="font-weight:400;color:#1d4ed8;">vs ${m.opponent}</span></p>
+        <p style="margin:3px 0 0;font-size:12px;color:#64748b;">📅 ${dateStr} &nbsp;·&nbsp; ⏱ ${formatTime12h(m.match_time)} &nbsp;·&nbsp; 📍 ${m.venue}</p>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:28px 32px 22px;text-align:center;">
+            <p style="margin:0 0 4px;color:#93c5fd;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">Skyhawks Cricket Club</p>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">⏰ Availability Reminder</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 24px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.7;">
+              You have <strong>${matches.length} upcoming match${matches.length !== 1 ? 'es' : ''}</strong> that require your availability response. Please log in and update your status so the selectors can finalise the squad.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:0 0 20px;">
+              ${matchRows}
+            </table>
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;">
+              <p style="margin:0;font-size:14px;color:#1e40af;font-weight:600;">✅ Please update your availability</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#3b82f6;line-height:1.5;">
+                Log in to the Skyhawks portal, go to <strong>Matches</strong>, and mark yourself Available, Maybe, or Unavailable for each match above.
+              </p>
+            </div>
+            <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 16px;">
+            <p style="margin:0;text-align:center;color:#cbd5e1;font-size:12px;">Skyhawks Cricket Club · skyhawkscricketclub.com</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const batchSize = 4;
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batch    = recipients.slice(i, i + batchSize);
+    const batchNum = Math.floor(i / batchSize) + 1;
+    enqueueBatch(async () => {
+      const { to, bcc } = bulkAddressing(batch, cc);
+      await resend.emails.send({ from: FROM, to, bcc, subject, html });
+      console.log(`[email] avail-reminder batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
+    });
+  }
+
+  console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for availability reminder`);
+  return { queued: recipients.length };
+}
+
 export type { }; // keep module boundary clean
 
 // ── Welcome / approval email ────────────────────────────────────────────────

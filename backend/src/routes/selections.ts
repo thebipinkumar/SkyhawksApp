@@ -71,7 +71,7 @@ router.post('/matches/:matchId/announce', authenticate, authorize('selector', 'a
   const selections = [...memberSels, ...guestSels];
   if (selections.length === 0) { res.status(400).json({ error: 'No players selected for this match' }); return; }
 
-  const allMembers = rows((await db.execute(`SELECT email FROM users WHERE status = 'active'`)).rows);
+  const allMembers = rows((await db.execute(`SELECT email FROM users WHERE status = 'active' AND broadcast_email = 1`)).rows);
   const emailList = allMembers.map((m: any) => m.email);
 
   const settingsRow = row((await db.execute(`SELECT contact_email FROM club_settings WHERE id=1`)).rows[0]);

@@ -30,6 +30,18 @@ router.put('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
   res.json(settings);
 });
 
+// PATCH /settings/avail-reminder — update availability reminder settings (admin)
+router.patch('/avail-reminder', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  const { avail_reminder_enabled, avail_reminder_hour } = req.body;
+  const enabled = avail_reminder_enabled ? 1 : 0;
+  const hour = Math.max(0, Math.min(23, Number(avail_reminder_hour) || 10));
+  await getDb().execute({
+    sql: `UPDATE club_settings SET avail_reminder_enabled=?, avail_reminder_hour=?, updated_at=CURRENT_TIMESTAMP WHERE id=1`,
+    args: [enabled, hour],
+  });
+  res.json({ avail_reminder_enabled: enabled, avail_reminder_hour: hour });
+});
+
 router.post('/logo', authenticate, authorize('admin'), (req: AuthRequest, res: Response) => {
   upload.single('logo')(req as any, res as any, async (err: any) => {
     if (err) { res.status(400).json({ error: err.message || 'Upload failed' }); return; }
