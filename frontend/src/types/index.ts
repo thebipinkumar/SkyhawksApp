@@ -12,7 +12,7 @@ export interface Tournament {
   created_at?: string;
 }
 export type UserStatus = 'active' | 'pending' | 'rejected';
-export type AvailabilityStatus = 'available' | 'not_available' | 'maybe' | 'not_responded';
+export type AvailabilityStatus = 'available' | 'not_available' | 'not_responded';
 
 export interface User {
   id: number;
@@ -45,6 +45,7 @@ export interface AvailabilityRecord {
   player_name: string;
   avatar_url?: string;
   status: AvailabilityStatus;
+  note?: string | null;
   updated_at?: string;
 }
 

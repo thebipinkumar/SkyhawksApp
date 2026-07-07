@@ -263,6 +263,38 @@ export async function initDb(): Promise<void> {
   // Migrate: last login tracking
   try { await db.execute(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch { /* exists */ }
 
+  // Migrate: add note column to match_availability
+  try { await db.execute(`ALTER TABLE match_availability ADD COLUMN note TEXT`); } catch { /* exists */ }
+
+  // Migrate: remove 'maybe' from match_availability CHECK constraint + data
+  try {
+    const schemaRes = await db.execute(`SELECT sql FROM sqlite_master WHERE type='table' AND name='match_availability'`);
+    const schemaSql = (schemaRes.rows[0]?.[0] ?? '') as string;
+    if (schemaSql.includes("'maybe'")) {
+      await db.execute('PRAGMA foreign_keys = OFF');
+      await db.execute(`CREATE TABLE match_availability_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'not_responded' CHECK(status IN ('available','not_available','not_responded')),
+        note TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (match_id) REFERENCES matches(id),
+        FOREIGN KEY (player_id) REFERENCES users(id),
+        UNIQUE(match_id, player_id)
+      )`);
+      await db.execute(`INSERT INTO match_availability_new (id, match_id, player_id, status, note, updated_at)
+        SELECT id, match_id, player_id,
+          CASE WHEN status = 'maybe' THEN 'available' ELSE status END,
+          note, updated_at
+        FROM match_availability`);
+      await db.execute('DROP TABLE match_availability');
+      await db.execute('ALTER TABLE match_availability_new RENAME TO match_availability');
+      await db.execute('PRAGMA foreign_keys = ON');
+      console.log('Migrated match_availability: maybe→available, note column added, CHECK updated.');
+    }
+  } catch (e) { console.error('match_availability migration error:', e); }
+
   // Migrate: availability auto-reminder settings on club_settings
   try { await db.execute(`ALTER TABLE club_settings ADD COLUMN avail_reminder_enabled INTEGER NOT NULL DEFAULT 0`); } catch { /* exists */ }
   try { await db.execute(`ALTER TABLE club_settings ADD COLUMN avail_reminder_hour INTEGER NOT NULL DEFAULT 10`); } catch { /* exists */ }

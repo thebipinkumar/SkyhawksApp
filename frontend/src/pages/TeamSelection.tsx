@@ -8,6 +8,7 @@ interface AvailablePlayer {
   player_name: string;
   avatar_url?: string;
   status: AvailabilityStatus;
+  note?: string | null;
 }
 
 interface GuestPlayer {
@@ -71,7 +72,7 @@ export default function TeamSelectionPage() {
 
     const selectedIds = new Set(team.filter(t => !t.is_guest).map((t: TeamSelection) => t.player_id));
     const eligible: AvailablePlayer[] = availData.data.filter((r: AvailablePlayer) =>
-      r.status === 'available' || r.status === 'maybe' || selectedIds.has(r.player_id)
+      r.status === 'available' || selectedIds.has(r.player_id)
     );
     setMatchPlayers(eligible);
 
@@ -168,12 +169,10 @@ export default function TeamSelectionPage() {
 
   const selectedCount = Object.values(selections).filter(v => v.selected).length + guests.length;
   const availableCount = matchPlayers.filter(p => p.status === 'available').length;
-  const maybeCount = matchPlayers.filter(p => p.status === 'maybe').length;
   const ROLES = ['', 'Wicket Keeper', 'Drinks Duty', 'Match Fee Collection'];
 
   const availabilityBadge = (status: AvailabilityStatus) => {
     if (status === 'available') return <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">Available</span>;
-    if (status === 'maybe')     return <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">Maybe</span>;
     return null;
   };
 
@@ -231,7 +230,6 @@ export default function TeamSelectionPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
                   <span className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">{availableCount} available</span>
-                  <span className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded-full">{maybeCount} maybe</span>
                   <span className="text-sm font-semibold text-purple-700 bg-purple-50 px-3 py-1 rounded-full">{selectedCount} selected</span>
                 </div>
               </div>
@@ -259,6 +257,7 @@ export default function TeamSelectionPage() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 text-sm truncate">{player.player_name}</p>
                           {availabilityBadge(player.status)}
+                          {player.note && <p className="text-xs text-gray-500 italic truncate mt-0.5">{player.note}</p>}
                         </div>
                         {sel.selected && (
                           <>

@@ -252,18 +252,18 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
 });
 
 router.put('/:matchId/availability', authenticate, async (req: AuthRequest, res: Response) => {
-  const { status } = req.body;
-  if (!['available', 'not_available', 'maybe'].includes(status)) {
-    res.status(400).json({ error: 'Status must be available, not_available, or maybe' }); return;
+  const { status, note } = req.body;
+  if (!['available', 'not_available'].includes(status)) {
+    res.status(400).json({ error: 'Status must be available or not_available' }); return;
   }
   const db = getDb();
   if (!(await db.execute({ sql: 'SELECT id FROM matches WHERE id = ?', args: [req.params.matchId] })).rows[0]) {
     res.status(404).json({ error: 'Match not found' }); return;
   }
   await db.execute({
-    sql: `INSERT INTO match_availability (match_id, player_id, status) VALUES (?,?,?)
-          ON CONFLICT(match_id, player_id) DO UPDATE SET status=excluded.status, updated_at=CURRENT_TIMESTAMP`,
-    args: [req.params.matchId, req.user!.id, status],
+    sql: `INSERT INTO match_availability (match_id, player_id, status, note) VALUES (?,?,?,?)
+          ON CONFLICT(match_id, player_id) DO UPDATE SET status=excluded.status, note=excluded.note, updated_at=CURRENT_TIMESTAMP`,
+    args: [req.params.matchId, req.user!.id, status, note?.trim() || null],
   });
   res.json({ message: 'Availability updated' });
 });
@@ -275,7 +275,7 @@ router.get('/:matchId/availability', authenticate, async (req: AuthRequest, res:
   }
   const result = await db.execute({
     sql: `SELECT u.id as player_id, u.name as player_name, u.avatar_url,
-          COALESCE(ma.status, 'not_responded') as status, ma.updated_at
+          COALESCE(ma.status, 'not_responded') as status, ma.note, ma.updated_at
           FROM users u
           LEFT JOIN match_availability ma ON ma.player_id = u.id AND ma.match_id = ?
           WHERE u.status = 'active' AND EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'player')

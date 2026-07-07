@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { Match, AvailabilityRecord, AvailabilityStatus, Tournament, TeamSelection } from '../types';
 import {
   Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp,
-  CheckCircle, XCircle, HelpCircle, MinusCircle, ExternalLink, Trophy, Users, Bell,
+  CheckCircle, XCircle, MinusCircle, ExternalLink, Trophy, Users, Bell,
 } from 'lucide-react';
 import VenueAutocomplete from '../components/VenueAutocomplete';
 
@@ -26,7 +26,6 @@ const emptyTournament = { name: '', format: '', start_date: '', end_date: '', de
 
 const availabilityConfig: Record<AvailabilityStatus, { label: string; color: string; icon: React.ReactNode }> = {
   available:     { label: 'Available',     color: 'bg-green-100 text-green-700 border-green-300',   icon: <CheckCircle size={14} /> },
-  maybe:         { label: 'Maybe',         color: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: <HelpCircle size={14} /> },
   not_available: { label: 'Not Available', color: 'bg-red-100 text-red-700 border-red-300',          icon: <XCircle size={14} /> },
   not_responded: { label: 'Not Responded', color: 'bg-gray-100 text-gray-500 border-gray-200',       icon: <MinusCircle size={14} /> },
 };
@@ -60,6 +59,7 @@ export default function Matches() {
   // Availability
   const [availability, setAvailability]     = useState<Record<number, AvailabilityRecord[]>>({});
   const [myStatus, setMyStatus]             = useState<Record<number, AvailabilityStatus>>({});
+  const [myNote, setMyNote]                 = useState<Record<number, string>>({});
   const [expandedAvail, setExpandedAvail]   = useState<Record<number, boolean>>({});
   const [updatingAvail, setUpdatingAvail]   = useState<number | null>(null);
 
@@ -108,6 +108,7 @@ export default function Matches() {
     if (user) {
       const mine = data.find((r: AvailabilityRecord) => r.player_id === user.id);
       setMyStatus(prev => ({ ...prev, [matchId]: mine?.status || 'not_responded' }));
+      setMyNote(prev => ({ ...prev, [matchId]: mine?.note || '' }));
     }
   };
 
@@ -134,11 +135,20 @@ export default function Matches() {
   };
 
   const setAvail = async (matchId: number, status: AvailabilityStatus) => {
-    if (status === 'not_responded') return;
     setUpdatingAvail(matchId);
     try {
-      await api.put(`/matches/${matchId}/availability`, { status });
+      await api.put(`/matches/${matchId}/availability`, { status, note: myNote[matchId] || '' });
       setMyStatus(prev => ({ ...prev, [matchId]: status }));
+      loadAvailability(matchId);
+    } finally { setUpdatingAvail(null); }
+  };
+
+  const saveNote = async (matchId: number) => {
+    const currentStatus = myStatus[matchId];
+    if (!currentStatus || currentStatus === 'not_responded') return;
+    setUpdatingAvail(matchId);
+    try {
+      await api.put(`/matches/${matchId}/availability`, { status: currentStatus, note: myNote[matchId] || '' });
       loadAvailability(matchId);
     } finally { setUpdatingAvail(null); }
   };
@@ -242,7 +252,6 @@ export default function Matches() {
 
   const availSummary = (recs: AvailabilityRecord[]) => ({
     available:     recs.filter(r => r.status === 'available').length,
-    maybe:         recs.filter(r => r.status === 'maybe').length,
     not_available: recs.filter(r => r.status === 'not_available').length,
     not_responded: recs.filter(r => r.status === 'not_responded').length,
   });
@@ -453,18 +462,34 @@ export default function Matches() {
                 {/* Availability section */}
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   {isPlayer && (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-sm font-medium text-gray-600">Your availability:</span>
-                      <div className="flex gap-2">
-                        {(['available', 'maybe', 'not_available'] as AvailabilityStatus[]).map(s => (
-                          <button key={s} disabled={updatingAvail === match.id}
-                            onClick={() => setAvail(match.id, s)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mine === s ? availabilityConfig[s].color + ' font-semibold ring-2 ring-offset-1 ring-current' : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'}`}>
-                            {availabilityConfig[s].icon} {availabilityConfig[s].label}
-                          </button>
-                        ))}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-gray-600">Your availability:</span>
+                        <div className="flex gap-2">
+                          {(['available', 'not_available'] as AvailabilityStatus[]).map(s => (
+                            <button key={s} disabled={updatingAvail === match.id}
+                              onClick={() => setAvail(match.id, s)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${mine === s ? availabilityConfig[s].color + ' font-semibold ring-2 ring-offset-1 ring-current' : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'}`}>
+                              {availabilityConfig[s].icon} {availabilityConfig[s].label}
+                            </button>
+                          ))}
+                        </div>
+                        {mine === 'not_responded' && <span className="text-xs text-gray-400 italic">Not responded yet</span>}
                       </div>
-                      {mine === 'not_responded' && <span className="text-xs text-gray-400 italic">Not responded yet</span>}
+                      {mine !== 'not_responded' && (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={myNote[match.id] ?? ''}
+                            onChange={e => setMyNote(prev => ({ ...prev, [match.id]: e.target.value }))}
+                            onBlur={() => saveNote(match.id)}
+                            onKeyDown={e => e.key === 'Enter' && saveNote(match.id)}
+                            placeholder="Add a note (optional)…"
+                            maxLength={200}
+                            className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-700 placeholder-gray-400"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -474,7 +499,6 @@ export default function Matches() {
                         <span className="text-sm font-medium text-gray-600">Player Availability:</span>
                         <div className="flex gap-3 text-xs flex-wrap">
                           <span className="flex items-center gap-1 text-green-700"><CheckCircle size={13} /> {summ.available} Available</span>
-                          <span className="flex items-center gap-1 text-yellow-700"><HelpCircle size={13} /> {summ.maybe} Maybe</span>
                           <span className="flex items-center gap-1 text-red-600"><XCircle size={13} /> {summ.not_available} Unavailable</span>
                           <span className="flex items-center gap-1 text-gray-400"><MinusCircle size={13} /> {summ.not_responded} Not Responded</span>
                         </div>
@@ -490,15 +514,18 @@ export default function Matches() {
                             const c = availabilityConfig[r.status];
                             return (
                               <div key={r.player_id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
                                   <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs flex-shrink-0">
                                     {r.avatar_url
                                       ? <img src={r.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
                                       : r.player_name.charAt(0)}
                                   </div>
-                                  <span className="text-sm text-gray-800">{r.player_name}</span>
+                                  <div className="min-w-0">
+                                    <span className="text-sm text-gray-800">{r.player_name}</span>
+                                    {r.note && <p className="text-xs text-gray-500 italic truncate">{r.note}</p>}
+                                  </div>
                                 </div>
-                                <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${c.color}`}>
+                                <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border flex-shrink-0 ${c.color}`}>
                                   {c.icon} {c.label}
                                 </span>
                               </div>
