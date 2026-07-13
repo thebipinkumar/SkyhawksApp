@@ -40,11 +40,11 @@ export function startCronJobs() {
       const todaySGT = nowSGT.toISOString().slice(0, 10);
       if (settings.avail_reminder_last_sent === todaySGT) return;
 
-      // Upcoming scheduled matches
+      // Upcoming scheduled matches where team has NOT been announced yet
       const matchesRes = await db.execute(`
         SELECT id, title, opponent, venue, match_date, match_time, match_type
         FROM matches
-        WHERE status = 'scheduled' AND match_date >= DATE('now', '+8 hours')
+        WHERE status = 'scheduled' AND match_date >= DATE('now', '+8 hours') AND is_announced = 0
         ORDER BY match_date ASC, match_time ASC
       `);
       const matches = rows(matchesRes.rows) as (ReminderMatch & { id: number })[];
