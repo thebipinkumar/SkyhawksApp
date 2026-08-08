@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import BannerSlider from '../../components/BannerSlider';
-import { Trophy, Users, Calendar, Mail, MapPin, Award, Instagram, Facebook } from 'lucide-react';
+import { Trophy, Mail, MapPin, Award, Instagram, Facebook } from 'lucide-react';
 
 interface AboutData {
   club_name: string; founded: string; tagline: string; description: string;
@@ -45,23 +45,6 @@ export default function About() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-10">
-        {/* Stats */}
-        {data && (
-          <div className="grid grid-cols-3 gap-4 text-center">
-            {[
-              { icon: <Users size={28} className="text-blue-600" />,  value: data.stats.members, label: 'Members' },
-              { icon: <Calendar size={28} className="text-purple-600" />, value: data.stats.matches, label: 'Matches Played' },
-              { icon: <Trophy size={28} className="text-yellow-600" />, value: data.stats.wins,   label: 'Wins' },
-            ].map(s => (
-              <div key={s.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex justify-center mb-2">{s.icon}</div>
-                <p className="text-3xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-sm text-gray-500 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* About */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">About Us</h2>
