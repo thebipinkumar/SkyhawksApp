@@ -1,13 +1,15 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useRef, useState, FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import { Match, AvailabilityRecord, AvailabilityStatus, Tournament, TeamSelection } from '../types';
 import {
-  Calendar, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp,
+  Calendar, CalendarDays, Plus, X, Edit2, Trash2, MapPin, Clock, ChevronDown, ChevronUp,
   CheckCircle, XCircle, MinusCircle, ExternalLink, Trophy, Users, Bell,
 } from 'lucide-react';
 import VenueAutocomplete from '../components/VenueAutocomplete';
+import MatchCalendarModal from '../components/MatchCalendarModal';
 
+const UPCOMING_PREVIEW_COUNT = 5;
 const MATCH_TYPES   = ['T20', 'T25', 'T30'];
 const STATUS_OPTIONS = ['scheduled', 'completed', 'cancelled'];
 const BALL_TYPES    = ['Red', 'White'];
@@ -39,6 +41,10 @@ export default function Matches() {
   const [loading, setLoading]               = useState(true);
   const [pastLoading, setPastLoading]       = useState(false);
   const [view, setView]                     = useState<'upcoming' | 'past'>('upcoming');
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [showCalendar, setShowCalendar]     = useState(false);
+  const [highlightId, setHighlightId]       = useState<number | null>(null);
+  const matchRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [showForm, setShowForm]             = useState(false);
   const [editMatch, setEditMatch]           = useState<Match | null>(null);
   const [form, setForm]                     = useState(emptyMatch);
@@ -98,6 +104,17 @@ export default function Matches() {
   const switchView = (v: 'upcoming' | 'past') => {
     setView(v);
     if (v === 'past') loadPast();
+  };
+
+  const jumpToMatch = (matchId: number) => {
+    setShowCalendar(false);
+    setView('upcoming');
+    setShowAllUpcoming(true);
+    setHighlightId(matchId);
+    setTimeout(() => {
+      matchRefs.current[matchId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    setTimeout(() => setHighlightId(null), 2500);
   };
 
   useEffect(() => { load(); }, []);
@@ -242,8 +259,9 @@ export default function Matches() {
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to delete tournament.'); }
   };
 
-  const displayMatches = view === 'upcoming' ? matches : pastMatches;
-  const isLoadingView  = view === 'upcoming' ? loading : pastLoading;
+  const visibleUpcoming = showAllUpcoming ? matches : matches.slice(0, UPCOMING_PREVIEW_COUNT);
+  const displayMatches  = view === 'upcoming' ? visibleUpcoming : pastMatches;
+  const isLoadingView   = view === 'upcoming' ? loading : pastLoading;
   const statusColor: Record<string, string> = {
     scheduled: 'bg-blue-100 text-blue-700', completed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-600',
   };
@@ -263,9 +281,19 @@ export default function Matches() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Calendar size={26} className="text-blue-700" /> Match Schedule
           </h1>
-          <p className="text-gray-500 text-sm mt-1">{displayMatches.length} {view === 'upcoming' ? 'upcoming' : 'past'} match{displayMatches.length !== 1 ? 'es' : ''}</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {view === 'upcoming'
+              ? `${matches.length} upcoming match${matches.length !== 1 ? 'es' : ''}${!showAllUpcoming && matches.length > UPCOMING_PREVIEW_COUNT ? ` (showing next ${UPCOMING_PREVIEW_COUNT})` : ''}`
+              : `${pastMatches.length} past match${pastMatches.length !== 1 ? 'es' : ''}`}
+          </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowCalendar(true)}
+            title="Browse all upcoming matches on a calendar"
+            className="btn-secondary flex items-center gap-2">
+            <CalendarDays size={16} /> Calendar
+          </button>
           {canManage && (
             <button onClick={() => setShowTournamentModal(true)} className="btn-secondary flex items-center gap-2">
               <Trophy size={16} /> Tournaments
@@ -280,21 +308,30 @@ export default function Matches() {
       </div>
 
       {/* View tabs */}
-      <div className="flex gap-2 mb-6">
-        <button onClick={() => switchView('upcoming')}
-          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${view === 'upcoming' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-          <Calendar size={15} /> Upcoming Matches
-          {view === 'upcoming' && matches.length > 0 && (
-            <span className="bg-white/30 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{matches.length}</span>
-          )}
-        </button>
-        <button onClick={() => switchView('past')}
-          className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${view === 'past' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-          <Clock size={15} /> Past Matches
-          {view === 'past' && pastMatches.length > 0 && (
-            <span className="bg-white/30 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{pastMatches.length}</span>
-          )}
-        </button>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div className="flex gap-2">
+          <button onClick={() => switchView('upcoming')}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${view === 'upcoming' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            <Calendar size={15} /> Upcoming Matches
+            {view === 'upcoming' && matches.length > 0 && (
+              <span className="bg-white/30 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{matches.length}</span>
+            )}
+          </button>
+          <button onClick={() => switchView('past')}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${view === 'past' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            <Clock size={15} /> Past Matches
+            {view === 'past' && pastMatches.length > 0 && (
+              <span className="bg-white/30 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{pastMatches.length}</span>
+            )}
+          </button>
+        </div>
+        {view === 'upcoming' && matches.length > UPCOMING_PREVIEW_COUNT && (
+          <button
+            onClick={() => setShowAllUpcoming(s => !s)}
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+            {showAllUpcoming ? <>Show Fewer <ChevronUp size={14} /></> : <>View All Matches <ChevronDown size={14} /></>}
+          </button>
+        )}
       </div>
 
       {notifyMsg && (
@@ -322,7 +359,11 @@ export default function Matches() {
             const squad   = squadData[match.id];
 
             return (
-              <div key={match.id} className="card hover:shadow-md transition-shadow">
+              <div
+                key={match.id}
+                ref={el => { matchRefs.current[match.id] = el; }}
+                className={`card hover:shadow-md transition-shadow ${highlightId === match.id ? 'ring-2 ring-blue-400' : ''}`}
+              >
                 {/* Match info row */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex-1">
@@ -761,6 +802,19 @@ export default function Matches() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Match Calendar Modal */}
+      {showCalendar && (
+        <MatchCalendarModal
+          matches={matches}
+          isPlayer={isPlayer}
+          myStatus={myStatus}
+          updatingAvail={updatingAvail}
+          onSetAvailability={setAvail}
+          onViewMatch={jumpToMatch}
+          onClose={() => setShowCalendar(false)}
+        />
       )}
     </div>
   );
