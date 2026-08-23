@@ -19,11 +19,8 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const matchRes = await api.get('/matches');
-        const upcoming = matchRes.data
-          .filter((m: Match) => m.status === 'scheduled')
-          .slice(0, 3);
-        setUpcomingMatches(upcoming);
+        const matchRes = await api.get('/matches?view=upcoming');
+        setUpcomingMatches(matchRes.data.slice(0, 3));
 
         if (userRoles.some(r => ['admin', 'manager', 'selector', 'account_manager'].includes(r))) {
           const usersRes = await api.get('/users');
