@@ -76,7 +76,7 @@ export default function Matches() {
 
   const userRoles: string[] = user?.roles ?? (user?.role ? [user.role] : []);
   const canManage  = userRoles.some(r => ['manager', 'admin'].includes(r));
-  const canSeeAll  = userRoles.some(r => ['manager', 'admin', 'selector'].includes(r));
+  const canSeeAll  = userRoles.some(r => ['manager', 'admin', 'selector', 'account_manager'].includes(r));
   const isPlayer   = userRoles.includes('player');
 
   const load = async () => {
@@ -534,22 +534,24 @@ export default function Matches() {
                     </div>
                   )}
 
-                  {canSeeAll && recs.length > 0 && (
-                    <div className={isPlayer ? 'mt-3' : ''}>
+                  {recs.length > 0 && (
+                    <div className="mt-3">
                       <div className="flex flex-wrap items-center gap-4">
                         <span className="text-sm font-medium text-gray-600">Player Availability:</span>
                         <div className="flex gap-3 text-xs flex-wrap">
                           <span className="flex items-center gap-1 text-green-700"><CheckCircle size={13} /> {summ.available} Available</span>
                           <span className="flex items-center gap-1 text-red-600"><XCircle size={13} /> {summ.not_available} Unavailable</span>
-                          <span className="flex items-center gap-1 text-gray-400"><MinusCircle size={13} /> {summ.not_responded} Not Responded</span>
+                          {canSeeAll && <span className="flex items-center gap-1 text-gray-400"><MinusCircle size={13} /> {summ.not_responded} Not Responded</span>}
                         </div>
-                        <button onClick={() => setExpandedAvail(prev => ({ ...prev, [match.id]: !isExp }))}
-                          className="ml-auto flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                          {isExp ? <><ChevronUp size={14} /> Hide</> : <><ChevronDown size={14} /> View All</>}
-                        </button>
+                        {canSeeAll && (
+                          <button onClick={() => setExpandedAvail(prev => ({ ...prev, [match.id]: !isExp }))}
+                            className="ml-auto flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            {isExp ? <><ChevronUp size={14} /> Hide</> : <><ChevronDown size={14} /> View All</>}
+                          </button>
+                        )}
                       </div>
 
-                      {isExp && (
+                      {canSeeAll && isExp && (
                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {recs.map(r => {
                             const c = availabilityConfig[r.status];
