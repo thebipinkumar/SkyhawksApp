@@ -34,15 +34,61 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const BATCH_DELAY_MS = 6 * 60 * 1000; // 6 minutes between batches
 
 type BatchTask = () => Promise<void>;
-const _queue: BatchTask[] = [];
+
+// ── Job tracking (progress reporting for the admin UI) ───────────────────────
+export interface EmailJob {
+  id: number;
+  label: string;
+  recipients: number;
+  totalBatches: number;
+  doneBatches: number;
+  failedBatches: number;
+  startedAt: number;
+  finishedAt: number | null;
+}
+
+const JOB_RETAIN_MS = 60_000; // keep finished jobs visible for 1 minute
+const _jobs = new Map<number, EmailJob>();
+let _jobSeq = 0;
+
+function createJob(label: string, recipients: number, totalBatches: number): EmailJob {
+  const job: EmailJob = {
+    id: ++_jobSeq, label, recipients, totalBatches,
+    doneBatches: 0, failedBatches: 0, startedAt: Date.now(), finishedAt: null,
+  };
+  _jobs.set(job.id, job);
+  return job;
+}
+
+function settleBatch(job: EmailJob, ok: boolean) {
+  job.doneBatches++;
+  if (!ok) job.failedBatches++;
+  if (job.doneBatches >= job.totalBatches) {
+    job.finishedAt = Date.now();
+    setTimeout(() => _jobs.delete(job.id), JOB_RETAIN_MS);
+  }
+}
+
+/** Snapshot of active and recently finished email jobs. */
+export function getEmailJobs() {
+  return Array.from(_jobs.values()).map(j => ({
+    ...j,
+    percent: Math.round((j.doneBatches / j.totalBatches) * 100),
+    active: j.finishedAt === null,
+  }));
+}
+
+const _queue: { task: BatchTask; job?: EmailJob }[] = [];
 let   _queueRunning = false;
 
 async function _drainQueue() {
   if (_queueRunning) return;
   _queueRunning = true;
   while (_queue.length > 0) {
-    const task = _queue.shift()!;
-    try { await task(); } catch (err) { console.error('[emailQueue] batch error:', err); }
+    const { task, job } = _queue.shift()!;
+    let ok = true;
+    try { await task(); } catch (err) { ok = false; console.error('[emailQueue] batch error:', err); }
+    if (job) settleBatch(job, ok);
     if (_queue.length > 0) {
       console.log(`[emailQueue] ${_queue.length} batch(es) pending — waiting ${BATCH_DELAY_MS / 60000}m…`);
       await sleep(BATCH_DELAY_MS);
@@ -52,8 +98,8 @@ async function _drainQueue() {
 }
 
 /** Enqueue a single batch task. Starts draining if not already running. */
-function enqueueBatch(task: BatchTask) {
-  _queue.push(task);
+function enqueueBatch(task: BatchTask, job?: EmailJob) {
+  _queue.push({ task, job });
   _drainQueue();                // fire-and-forget drain
 }
 
@@ -223,8 +269,8 @@ export function sendMatchScheduledEmail(
     : `Match Scheduled: ${data.matchTitle} vs ${data.opponent}`;
   const html = buildMatchNotificationHtml(data);
 
-  // Split into batches of 4 and push each as an independent queue task
   const batchSize = 4;
+  const job = createJob(data.isReminder ? `Availability reminder: ${data.matchTitle}` : `Match scheduled: ${data.matchTitle}`, recipients.length, Math.ceil(recipients.length / batchSize));
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch = recipients.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
@@ -232,7 +278,7 @@ export function sendMatchScheduledEmail(
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
       console.log(`[email] match-notify batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
-    });
+    }, job);
   }
 
   console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for "${subject}"`);
@@ -374,6 +420,7 @@ export function sendAnnouncementEmails(
   const subject = `Team Announcement: ${data.matchTitle} vs ${data.opponent}`;
   const html    = buildHtml(data);
   const batchSize = 4;
+  const job = createJob(`Team announcement: ${data.matchTitle}`, recipients.length, Math.ceil(recipients.length / batchSize));
 
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch    = recipients.slice(i, i + batchSize);
@@ -382,7 +429,7 @@ export function sendAnnouncementEmails(
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
       console.log(`[email] announce batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
-    });
+    }, job);
   }
 
   console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for "${subject}"`);
@@ -448,6 +495,7 @@ export function sendCustomAnnouncementEmail(
 </body></html>`;
 
   const batchSize = 4;
+  const job = createJob(`Broadcast: ${subject}`, recipients.length, Math.ceil(recipients.length / batchSize));
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch    = recipients.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
@@ -455,7 +503,7 @@ export function sendCustomAnnouncementEmail(
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
       console.log(`[email] custom-broadcast batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
-    });
+    }, job);
   }
 
   console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for custom broadcast "${subject}"`);
@@ -534,6 +582,7 @@ export function sendAvailabilityReminderEmail(
 </html>`;
 
   const batchSize = 4;
+  const job = createJob('Availability reminder (all upcoming matches)', recipients.length, Math.ceil(recipients.length / batchSize));
   for (let i = 0; i < recipients.length; i += batchSize) {
     const batch    = recipients.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
@@ -541,7 +590,7 @@ export function sendAvailabilityReminderEmail(
       const { to, bcc } = bulkAddressing(batch, cc);
       await resend.emails.send({ from: FROM, to, bcc, subject, html });
       console.log(`[email] avail-reminder batch ${batchNum} sent (${to.length + bcc.length} recipients)`);
-    });
+    }, job);
   }
 
   console.log(`[email] ${Math.ceil(recipients.length / batchSize)} batch(es) queued for availability reminder`);

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ClubProvider } from './contexts/ClubContext';
 import api from './utils/api';
 import Navbar from './components/Navbar';
+import EmailProgressBar from './components/EmailProgressBar';
 import PublicNavbar from './components/PublicNavbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -39,6 +40,7 @@ function ProtectedRoute({ children, roles }: { children: JSX.Element; roles?: st
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
+      {isAdmin && <EmailProgressBar />}
       <main>{children}</main>
     </div>
   );
